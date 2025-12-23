@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>アカウント登録</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 400px;">
+        <h2>APIキー登録</h2>
+        <form id="registerForm">
+            <div class="form-group"%s/👀/👀/g>
+                <input type="text" id="name" name="name" placeholder="アカウント名" required>
+            </div>
+            <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="password" id="api_key" name="api_key" placeholder="API Key" required style="flex: 1;">
+                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('api_key', this)">�</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="password" id="api_secret" name="api_secret" placeholder="API Secret" required style="flex: 1;">
+                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('api_secret', this)">�</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="password" id="access_token" name="access_token" placeholder="Access Token" required style="flex: 1;">
+                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('access_token', this)">�</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="password" id="access_token_secret" name="access_token_secret" placeholder="Access Secret" required style="flex: 1;">
+                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('access_token_secret', this)">�</button>
+                </div>
+            </div>
+            <button type="submit" class="btn-save">DBに暗号化して保存</button>
+            <p style="text-align: center;"><a href="index.html">戻る</a></p>
+        </form>
+    </div>
+    <script src="register.js"></script>
+</body>
+</html>
