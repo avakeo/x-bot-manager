@@ -5,7 +5,8 @@ from models import Account, Tweet, get_session, create_db_and_tables # create_db
 from services.encryption import encrypt_data
 from services.x_service import send_hello_world # 後ほど作成する関数
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+import json
 
 app = FastAPI()
 
@@ -92,9 +93,28 @@ def get_account_tweets(account_id: int, session: Session = Depends(get_session))
 
 # 新しいツイートを予約（DBに保存）
 @app.post("/accounts/{account_id}/tweets")
-def schedule_tweet(account_id: int, tweet: Tweet, session: Session = Depends(get_session)):
-    tweet.account_id = account_id
-    tweet.is_posted = False  # まだ投稿していない
+def schedule_tweet(account_id: int, data: dict, session: Session = Depends(get_session)):
+    content = data.get("content", "").strip()
+    image_names = data.get("image_names", [])  # リストで受け取る
+    scheduled_at_str = data.get("scheduled_at")
+    
+    # テキストと画像の両方が空でないか確認
+    if not content and not image_names:
+        raise HTTPException(status_code=400, detail="テキストまたは画像を選択してください")
+    
+    # 日時文字列をdatetimeオブジェクトに変換
+    try:
+        scheduled_at = datetime.fromisoformat(scheduled_at_str)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="無効な日時形式です")
+    
+    tweet = Tweet(
+        account_id=account_id,
+        content=content,
+        image_names=json.dumps(image_names),  # JSON文字列で保存
+        is_posted=False,
+        scheduled_at=scheduled_at
+    )
     session.add(tweet)
     session.commit()
     return {"status": "success"}

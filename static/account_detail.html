@@ -21,16 +21,20 @@
 
             <main class="column form-col">
                 <h3>投稿する</h3>
+                
+                <div class="form-group">
+                    <label>選択画像（最大4枚）</label>
+                    <div id="selected-image-preview" class="image-preview-multi">
+                        <p style="color:#999; margin:0; text-align:center;">画像を選択してください（1～4枚）</p>
+                    </div>
+                    <small style="color:#666; display:block; margin-top:5px;" id="image-count">選択中：0 / 4</small>
+                </div>
+                
                 <form id="tweetForm">
                     <div class="form-group">
-                        <label for="content">ツイート内容</label>
-                        <textarea id="content" placeholder="いまどうしてる？" required></textarea>
+                        <label for="content">ツイート内容（オプション）</label>
+                        <textarea id="content" placeholder="テキストなし（画像のみ）でも投稿できます。"></textarea>
                         <small id="char-count">0 / 280</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>選択画像</label>
-                        <div id="selected-image-preview" class="image-preview"></div>
                     </div>
                     
                     <div class="form-group">
@@ -40,6 +44,18 @@
                     
                     <button type="submit" class="btn-save">予約する</button>
                 </form>
+                
+                <div style="margin-top:20px; padding:15px; background:#f0f7ff; border-radius:8px;">
+                    <p style="margin:0 0 10px 0; font-size:0.85em; color:#666;">
+                        💡 <strong>ヒント:</strong> 複数の投稿を同じ画像で予約したい場合、次のようにしてください：
+                    </p>
+                    <ol style="margin:0; padding-left:20px; font-size:0.85em; color:#666;">
+                        <li>左カラムから画像を選択</li>
+                        <li>ツイート内容と日時を入力</li>
+                        <li>「予約する」をクリック</li>
+                        <li>繰り返す（画像は同じまま）</li>
+                    </ol>
+                </div>
             </main>
 
             <aside class="column history-col">

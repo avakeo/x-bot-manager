@@ -24,7 +24,8 @@ class Account(SQLModel, table=True):
 class Tweet(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     account_id: int
-    content: str
+    content: Optional[str] = Field(default="")  # テキストはオプション
+    image_names: str = Field(default="")  # JSON文字列で複数の画像ファイル名を保存
     is_posted: bool = Field(default=False)  # 投稿済みかどうか
     scheduled_at: Optional[datetime] = None  # 予約日時
     posted_at: Optional[datetime] = None     # 実際の投稿日時

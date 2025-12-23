@@ -91,6 +91,9 @@ function setupCharCounter() {
     updateCount();
 }
 
+// グローバル変数で選択画像を管理
+let selectedImages = []; // 選択画像の配列（最大4枚）
+
 // 画像一覧の読み込み
 async function loadImages(accountId) {
     const res = await fetch(`/accounts/${accountId}/images`);
@@ -100,7 +103,7 @@ async function loadImages(accountId) {
     if (!gallery) return;
     
     gallery.innerHTML = images.map(img => `
-        <img src="/uploads/${accountId}/${img}" alt="${img}" onclick="selectImage(this)">
+        <img src="/uploads/${accountId}/${img}" alt="${img}" class="gallery-img" onclick="selectImage('${accountId}', '${img}', this)">
     `).join('');
 }
 
@@ -171,10 +174,88 @@ async function uploadImages(accountId, files) {
     }
 }
 
-// 画像選択
-function selectImage(img) {
-    document.querySelectorAll('.gallery img').forEach(i => i.classList.remove('selected'));
-    img.classList.add('selected');
+// 画像選択（複数対応、最大4枚）
+function selectImage(accountId, imageName, imgElement) {
+    const imageUrl = imgElement.src;
+    
+    // すでに選択されているか確認
+    const index = selectedImages.findIndex(img => img.src === imageUrl);
+    
+    if (index === -1) {
+        // 選択されていない → 追加（ただし4枚まで）
+        if (selectedImages.length < 4) {
+            selectedImages.push({ src: imageUrl, name: imageName });
+            imgElement.classList.add('selected');
+        } else {
+            alert('最大4枚までです');
+            return;
+        }
+    } else {
+        // すでに選択されている → 削除
+        selectedImages.splice(index, 1);
+        imgElement.classList.remove('selected');
+    }
+    
+    // プレビューを更新
+    updateSelectedImagesPreview();
+}
+
+// 選択画像のプレビューを更新
+function updateSelectedImagesPreview() {
+    const preview = document.getElementById('selected-image-preview');
+    if (!preview) return;
+    
+    if (selectedImages.length === 0) {
+        preview.innerHTML = '<p style="color:#999; margin:0;">画像を選択してください（最大4枚）</p>';
+        document.getElementById('image-count').textContent = '0 / 4';
+        return;
+    }
+    
+    // 画像プレビューを4つのスロットに表示
+    let html = '<div class="image-preview-multi">';
+    
+    for (let i = 0; i < 4; i++) {
+        if (i < selectedImages.length) {
+            html += `
+                <div class="image-item">
+                    <img src="${selectedImages[i].src}" alt="${selectedImages[i].name}">
+                    <button type="button" class="remove-btn" onclick="removeSelectedImage(${i})">×</button>
+                </div>
+            `;
+        } else {
+            html += '<div class="image-item" style="background:#f0f0f0; border-radius:4px;"></div>';
+        }
+    }
+    
+    html += '</div>';
+    preview.innerHTML = html;
+    
+    // 画像数を表示
+    document.getElementById('image-count').textContent = `${selectedImages.length} / 4`;
+}
+
+// 選択画像を削除（インデックス指定）
+function removeSelectedImage(index) {
+    if (index >= 0 && index < selectedImages.length) {
+        const imageSrc = selectedImages[index].src;
+        selectedImages.splice(index, 1);
+        
+        // ギャラリー内の対応する画像の選択状態を解除
+        document.querySelectorAll('.gallery-img').forEach(img => {
+            if (img.src === imageSrc) {
+                img.classList.remove('selected');
+            }
+        });
+        
+        updateSelectedImagesPreview();
+    }
+}
+
+// 選択画像をすべて解除
+function clearSelectedImage() {
+    selectedImages = [];
+    document.querySelectorAll('.gallery-img').forEach(i => i.classList.remove('selected'));
+    updateSelectedImagesPreview();
 }
 
 // タイムライン描画
@@ -206,8 +287,23 @@ if (tweetForm) {
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
 
+        const content = document.getElementById('content').value.trim();
+        
+        // テキストと画像の両方が空でないか確認
+        if (!content && selectedImages.length === 0) {
+            alert('テキストまたは画像を選択してください');
+            return;
+        }
+
+        // 画像ファイル名を取得（URLから抽出）
+        const imageNames = selectedImages.map(img => {
+            const parts = img.src.split('/');
+            return parts[parts.length - 1]; // ファイル名のみを取得
+        });
+
         const data = {
-            content: document.getElementById('content').value,
+            content: content,
+            image_names: imageNames,
             scheduled_at: document.getElementById('scheduled_at').value
         };
 
@@ -219,7 +315,11 @@ if (tweetForm) {
 
         if (res.ok) {
             alert('予約しました！');
+            selectedImages = [];  // リセット
             location.reload(); // 再読み込みして一覧を更新
+        } else {
+            const error = await res.json();
+            alert(`エラー: ${error.detail}`);
         }
     };
 }
