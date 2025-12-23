@@ -69,6 +69,35 @@ def test_tweet(account_id: int, session: Session = Depends(get_session)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- main.py に追加 ---
+
+# 特定のアカウントの投稿一覧（予約＋履歴）を取得
+@app.get("/accounts/{account_id}/tweets")
+def get_account_tweets(account_id: int, session: Session = Depends(get_session)):
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # 全ツイートデータ取得
+    tweets = session.exec(
+        select(Tweet)
+        .where(Tweet.account_id == account_id)
+        .order_by(desc(Tweet.scheduled_at))
+    ).all()
+
+    return {
+        "account_name": account.name,
+        "tweets": tweets
+    }
+
+# 新しいツイートを予約（DBに保存）
+@app.post("/accounts/{account_id}/tweets")
+def schedule_tweet(account_id: int, tweet: Tweet, session: Session = Depends(get_session)):
+    tweet.account_id = account_id
+    tweet.is_posted = False  # まだ投稿していない
+    session.add(tweet)
+    session.commit()
+    return {"status": "success"}
 # 4. 【重要】フロントエンドを表示するための設定
 # これを一番最後に書くことで、/ にアクセスした時に static/index.html を探してくれます
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
