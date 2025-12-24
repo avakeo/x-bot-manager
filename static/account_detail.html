@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>投稿管理 - X Manager</title>
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
     <div class="container">
@@ -35,6 +35,11 @@
                     <button class="tab-btn active" data-tab="single" onclick="switchFormTab('single')">通常投稿</button>
                     <button class="tab-btn" data-tab="bulk" onclick="switchFormTab('bulk')">一括予約</button>
                     <button class="tab-btn" data-tab="mega" onclick="switchFormTab('mega')">メガ予約</button>
+                </div>
+                <div style="background:var(--tab-bg); border:1px solid var(--border); border-radius:8px; padding:10px; margin:10px 0; font-size:0.9em; color:var(--text);">
+                    <strong>使い分けガイド</strong><br>
+                    ・一括予約: 数枚〜数十枚を指定間隔で順送り。開始日時・間隔を変えながらも画像枚数はそこまで多くないケース向け。<br>
+                    ・メガ予約: 最大150枚の大量投稿を一気に予約する大規模向け。大量画像＋連番テキストが必要なときはこちら。
                 </div>
 
                 <div class="form-group">
@@ -90,7 +95,11 @@
                                     <option value="12">12時間ごと</option>
                                     <option value="24">1日ごと</option>
                                 </select>
-                                <small style="color:#666; display:block; margin-top:5px;">⏱️ 選択した画像ごとに、この間隔で投稿予約されます</small>
+                                <div style="margin-top:6px;">
+                                    <label for="bulk_interval_custom" style="font-size:0.9em; color:var(--text);">カスタム間隔（分単位）</label>
+                                    <input type="number" id="bulk_interval_custom" min="1" step="1" placeholder="例: 30" style="width:120px; margin-left:8px;">
+                                </div>
+                                <small style="color:#666; display:block; margin-top:5px;">⏱️ プルダウンまたはカスタム間隔（分）を指定できます。カスタムが優先されます。</small>
                             </div>
                         </div>
 
@@ -132,7 +141,9 @@
                                         <p style="margin:4px 0; font-size:0.85em; color:var(--muted);">
                                             ✅ 各行がそのまま各画像のツイート本文になります<br>
                                             ✅ 絵文字やハッシュタグも使用できます<br>
-                                            ⚠️ 画像の枚数と行数を必ず合わせてください
+                                            ✅ 改行したい場合は行中に <code>\n</code> を入れてください（読み込み時に実際の改行になります）<br>
+                                            ⚠️ 画像の枚数と行数を必ず合わせてください<br>
+                                            ℹ️ 一括予約は数枚〜数十枚、メガ予約は大量（最大150枚）向けです
                                         </p>
                                     </div>
                                 </details>
@@ -144,21 +155,9 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>📋 予約内容プレビュー</label>
-                            <div id="bulk_preview" class="card-preview-list" style="max-height: 320px; overflow-y: auto;">
-                                <p style="color: #999;">画像と間隔を選択すると表示されます</p>
-                            </div>
-                        </div>
-
                         <button type="submit" class="btn-save">一括予約する（<span id="bulk_tweet_count">0</span>件）</button>
                     </form>
                 </div>
-
-                <section class="card-preview-section">
-                    <h4>リアルタイムプレビュー</h4>
-                    <div id="card-preview-list" class="card-preview-list"></div>
-                </section>
 
                 <div id="tab-mega" class="tab-panel" style="display:none; margin-top:16px;">
                     <div style="background:var(--tab-bg); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:12px;">
@@ -182,11 +181,39 @@
                             <option value="12">12時間</option>
                             <option value="24">1日</option>
                         </select>
+                        <div style="margin-top:6px;">
+                            <label for="mega_interval_custom" style="font-size:0.9em; color:var(--text);">カスタム間隔（分単位）</label>
+                            <input type="number" id="mega_interval_custom" min="1" step="1" placeholder="例: 45" style="width:120px; margin-left:8px;">
+                        </div>
+                        <small style="color:#666; display:block; margin-top:5px;">⏱️ プルダウンまたはカスタム間隔（分）を指定できます。カスタムが優先されます。</small>
                     </div>
                     <div class="form-group">
-                        <label for="mega_text">テキスト（任意）</label>
-                        <input type="text" id="mega_text" placeholder="例: Day">
-                        <small style="color:#666;">連番は自動で (1/N) 形式が付きます。</small>
+                        <label>テキストソース</label>
+                        <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+                            <label style="display:flex; align-items:center; gap:6px;">
+                                <input type="radio" name="mega_text_source" value="input" checked> 入力フィールドを使う
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px;">
+                                <input type="radio" name="mega_text_source" value="csv"> CSVから読み込む
+                            </label>
+                        </div>
+                        <div id="mega_text_input_group">
+                            <input type="text" id="mega_text" placeholder="例: Day">
+                            <small style="color:#666;">連番は自動で (1/N) 形式が付きます。</small>
+                        </div>
+                        <div class="form-group" id="mega_csv_input_group" style="display:none; margin-top:10px; border:1px dashed var(--border); padding:10px; border-radius:8px;">
+                            <label for="mega_csv_file">CSVファイル（メガ予約用）</label>
+                            <input type="file" id="mega_csv_file" accept=".csv" onchange="handleMegaCSVUpload(event)">
+                            <small style="color:#666; display:block; margin-top:5px;">
+                                📄 1行1ツイートとして読み込みます。<br>
+                                ➡️ ここにCSVをドラッグ＆ドロップしても読み込みできます。<br>
+                                ✅ 改行したい場合は行中に <code>\n</code> を入れてください（実際の改行に変換されます）。
+                            </small>
+                            <div id="mega_csv_preview" style="margin-top:8px; padding:8px; background:var(--card); border:1px solid var(--border); border-radius:6px; display:none; max-height:150px; overflow-y:auto;">
+                                <strong>読み込み内容:</strong>
+                                <div id="mega_csv_content" style="margin-top:4px; font-size:0.9em; color:var(--muted);"></div>
+                            </div>
+                        </div>
                     </div>
                     <div style="margin:8px 0; font-size:0.9em; color:#333;">選択中: <span id="mega-image-count">0 / 150</span></div>
                     <button type="button" id="mega_schedule_btn" class="btn-save" style="background:#ff7a1a; margin-top:4px;">メガ予約を実行</button>
@@ -201,6 +228,11 @@
                     </div>
                     <small style="color:#777; display:block; margin-top:8px;">1枚ずつ順次予約します。画面を閉じずにお待ちください。</small>
                 </div>
+
+                <section class="card-preview-section" style="margin-top:18px;">
+                    <h4 id="preview-title">プレビュー</h4>
+                    <div id="card-preview-list" class="card-preview-list"></div>
+                </section>
             </main>
 
             <aside class="column history-col">
@@ -218,7 +250,7 @@
             </aside>
         </div>
     </div>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=11"></script>
     <script>
         // このページが開かれた時に実行
         const urlParams = new URLSearchParams(window.location.search);

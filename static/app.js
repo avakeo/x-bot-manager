@@ -79,19 +79,13 @@ async function loadCSVTexts(accountId) {
             // 取得時にも \n を改行として扱う
             csvTexts = data.texts.map(t => (t || '').toString().replace(/\\n/g, '\n'));
             
-            // プレビュー表示
-            const previewDiv = document.getElementById('csv_preview');
-            const contentDiv = document.getElementById('csv_content');
-            
-            if (previewDiv && contentDiv) {
-                previewDiv.style.display = 'block';
-                contentDiv.innerHTML = csvTexts.map((txt, idx) => {
-                    const safe = (txt || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-                    return `<div style="padding:2px 0;">${idx + 1}. ${safe}</div>`;
-                }).join('');
-            }
+            // プレビュー表示（両方の領域を更新）
+            renderCSVPreview('csv_preview', 'csv_content');
+            renderCSVPreview('mega_csv_preview', 'mega_csv_content');
             
             console.log(`CSVテキストを読み込みました: ${data.count}件`);
+            updateBulkPreview();
+            updateSingleCardPreview();
         }
     } catch (err) {
         console.error('CSV読み込みエラー:', err);
@@ -154,11 +148,15 @@ function setupSinglePreviewListeners() {
     const dateInput = document.getElementById('scheduled_at');
     const bulkStartTime = document.getElementById('bulk_start_time');
     const bulkInterval = document.getElementById('bulk_interval');
+    const bulkIntervalCustom = document.getElementById('bulk_interval_custom');
     const bulkTextMode = document.getElementById('bulk_text_mode');
     const bulkText = document.getElementById('bulk_text');
     const megaStartTime = document.getElementById('mega_start_time');
     const megaInterval = document.getElementById('mega_interval');
+    const megaIntervalCustom = document.getElementById('mega_interval_custom');
     const megaText = document.getElementById('mega_text');
+    const megaTextRadios = document.querySelectorAll('input[name="mega_text_source"]');
+    const megaCsvFile = document.getElementById('mega_csv_file');
     
     // 通常投稿モードのフィールド
     if (contentInput) contentInput.addEventListener('input', updateSingleCardPreview);
@@ -167,6 +165,7 @@ function setupSinglePreviewListeners() {
     // 一括予約モードのフィールドを監視
     if (bulkStartTime) bulkStartTime.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
     if (bulkInterval) bulkInterval.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
+    if (bulkIntervalCustom) bulkIntervalCustom.addEventListener('input', () => { if (activeTab === 'bulk') updateBulkPreview(); });
     if (bulkTextMode) bulkTextMode.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
     if (bulkText) {
         bulkText.addEventListener('input', () => { if (activeTab === 'bulk') updateBulkPreview(); });
@@ -176,9 +175,33 @@ function setupSinglePreviewListeners() {
     // メガ予約モードのフィールドを監視
     if (megaStartTime) megaStartTime.addEventListener('change', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
     if (megaInterval) megaInterval.addEventListener('change', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
+    if (megaIntervalCustom) megaIntervalCustom.addEventListener('input', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
     if (megaText) {
         megaText.addEventListener('input', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
         megaText.addEventListener('change', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
+    }
+    if (megaTextRadios && megaTextRadios.length) {
+        megaTextRadios.forEach(r => r.addEventListener('change', () => {
+            if (activeTab === 'mega') {
+                if (r.value === 'csv') {
+                    setupMegaCSVDragDropZone();
+                    const csvGroup = document.getElementById('mega_csv_input_group');
+                    const textGroup = document.getElementById('mega_text_input_group');
+                    if (csvGroup) csvGroup.style.display = 'block';
+                    if (textGroup) textGroup.style.display = 'none';
+                }
+                if (r.value === 'input') {
+                    const csvGroup = document.getElementById('mega_csv_input_group');
+                    const textGroup = document.getElementById('mega_text_input_group');
+                    if (csvGroup) csvGroup.style.display = 'none';
+                    if (textGroup) textGroup.style.display = 'block';
+                }
+                updateSingleCardPreview();
+            }
+        }));
+    }
+    if (megaCsvFile) {
+        megaCsvFile.addEventListener('change', handleMegaCSVUpload);
     }
 }
 
@@ -229,14 +252,36 @@ function switchFormTab(tab) {
         megaPanel.style.display = tab === 'mega' ? 'block' : 'none';
     }
 
+    // プレビュータイトルをモードに合わせて更新
+    const previewTitle = document.getElementById('preview-title');
+    if (previewTitle) {
+        if (tab === 'bulk') {
+            previewTitle.textContent = 'プレビュー（現在のタブ: 一括予約）';
+        } else if (tab === 'mega') {
+            previewTitle.textContent = 'プレビュー（現在のタブ: メガ予約）';
+        } else {
+            previewTitle.textContent = 'プレビュー（現在のタブ: 通常投稿）';
+        }
+    }
+
     // プレビュー・バッジをモードに合わせて更新
     updateSelectionBadges(null, isMegaMode ? megaSelectedImages : selectedImages);
     updateSelectedImagesPreview();
 
     if (tab === 'bulk') {
         updateBulkPreview();
-    } else if (tab === 'single') {
+    } else {
         updateSingleCardPreview();
+    }
+
+    if (tab === 'mega') {
+        // 初期状態で入力フィールドを表示、CSVは非表示
+        const csvGroup = document.getElementById('mega_csv_input_group');
+        const textGroup = document.getElementById('mega_text_input_group');
+        const defaultRadio = document.querySelector('input[name="mega_text_source"][value="input"]');
+        if (csvGroup) csvGroup.style.display = 'none';
+        if (textGroup) textGroup.style.display = 'block';
+        if (defaultRadio) defaultRadio.checked = true;
     }
 }
 
@@ -708,8 +753,22 @@ function toggleMegaMode() {
 // CSVインポートで読み込んだテキストを保持
 let csvTexts = [];
 
+function renderCSVPreview(previewId = 'csv_preview', contentId = 'csv_content') {
+    const previewDiv = document.getElementById(previewId);
+    const contentDiv = document.getElementById(contentId);
+    if (!previewDiv || !contentDiv) return;
+
+    if (csvTexts.length > 0) {
+        previewDiv.style.display = 'block';
+        contentDiv.innerHTML = csvTexts.map((txt, idx) => {
+            const safe = (txt || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            return `<div style="padding:2px 0;">${idx + 1}. ${safe}</div>`;
+        }).join('');
+    }
+}
+
 // CSVファイルを共通で処理する関数（アップロード&ドラッグ&ドロップで利用）
-async function processCSVFile(file) {
+async function processCSVFile(file, previewId = 'csv_preview', contentId = 'csv_content') {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async function(e) {
@@ -728,15 +787,7 @@ async function processCSVFile(file) {
             }
             
             // プレビュー表示
-            const previewDiv = document.getElementById('csv_preview');
-            const contentDiv = document.getElementById('csv_content');
-            
-            if (csvTexts.length > 0) {
-                previewDiv.style.display = 'block';
-                contentDiv.innerHTML = csvTexts.map((txt, idx) => 
-                    `<div style="padding:2px 0;">${idx + 1}. ${txt}</div>`
-                ).join('');
-            }
+            renderCSVPreview(previewId, contentId);
             
             // DBに保存
             const urlParams = new URLSearchParams(window.location.search);
@@ -759,6 +810,7 @@ async function processCSVFile(file) {
             
             // プレビューを更新
             updateBulkPreview();
+            updateSingleCardPreview();
             resolve();
         };
         reader.onerror = reject;
@@ -769,7 +821,13 @@ async function processCSVFile(file) {
 async function handleCSVUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    await processCSVFile(file);
+    await processCSVFile(file, 'csv_preview', 'csv_content');
+}
+
+async function handleMegaCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    await processCSVFile(file, 'mega_csv_preview', 'mega_csv_content');
 }
 
 // CSV入力エリアにドラッグ＆ドロップで取り込めるようにする
@@ -809,6 +867,43 @@ function setupCSVDragDropZone() {
     });
 }
 
+// メガ予約用のCSVドロップゾーン
+function setupMegaCSVDragDropZone() {
+    const zone = document.getElementById('mega_csv_input_group');
+    if (!zone || zone.dataset.dropBound === '1') return;
+    zone.dataset.dropBound = '1';
+
+    const resetStyle = () => {
+        zone.style.background = '';
+        zone.style.borderColor = '';
+    };
+
+    ['dragover', 'dragenter'].forEach(evt => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            zone.style.background = 'var(--tab-bg)';
+            zone.style.borderColor = 'var(--accent)';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            resetStyle();
+        });
+    });
+
+    zone.addEventListener('drop', async (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            alert('CSVファイルをドロップしてください');
+            return;
+        }
+        await processCSVFile(file, 'mega_csv_preview', 'mega_csv_content');
+    });
+}
+
 function updateBulkTextPreview() {
     const textMode = document.getElementById('bulk_text_mode').value;
     const textInputGroup = document.getElementById('bulk_text_input_group');
@@ -842,29 +937,34 @@ function updateBulkTextPreview() {
 
 // 一括予約プレビューを更新
 function updateBulkPreview() {
+    const list = document.getElementById('card-preview-list');
+    if (!list) return;
+
     if (selectedImages.length === 0) {
-        document.getElementById('bulk_preview').innerHTML = '<p style="color: #999;">画像を選択してください</p>';
+        list.innerHTML = '<p style="color: #999;">画像を選択してください</p>';
         document.getElementById('bulk_tweet_count').textContent = '0';
         return;
     }
 
     const startTime = document.getElementById('bulk_start_time').value;
-    const interval = parseInt(document.getElementById('bulk_interval').value) || 0;
+    const intervalSelect = parseInt(document.getElementById('bulk_interval').value) || 0;
+    const intervalCustomMin = parseInt(document.getElementById('bulk_interval_custom')?.value) || 0;
+    const intervalMinutes = intervalCustomMin > 0 ? intervalCustomMin : intervalSelect * 60;
     const textMode = document.getElementById('bulk_text_mode').value;
     const textContent = document.getElementById('bulk_text').value;
 
-    if (!startTime || !interval || !textMode) {
-        document.getElementById('bulk_preview').innerHTML = '<p style="color: #999;">開始日時、間隔、テキスト設定を選択してください</p>';
+    if (!startTime || !intervalMinutes || !textMode) {
+        list.innerHTML = '<p style="color: #999;">開始日時、間隔、テキスト設定を選択してください</p>';
         document.getElementById('bulk_tweet_count').textContent = '0';
         return;
     }
 
     const startDate = new Date(startTime);
-    let html = '<div class="card-preview-list">';
+    let html = '';
 
     selectedImages.forEach((img, index) => {
         const scheduleDate = new Date(startDate);
-        scheduleDate.setHours(scheduleDate.getHours() + interval * index);
+        scheduleDate.setMinutes(scheduleDate.getMinutes() + intervalMinutes * index);
 
         let text = '';
         if (textMode === 'fixed') {
@@ -898,8 +998,7 @@ function updateBulkPreview() {
         `;
     });
 
-    html += '</div>';
-    document.getElementById('bulk_preview').innerHTML = html;
+    list.innerHTML = html;
     document.getElementById('bulk_tweet_count').textContent = selectedImages.length;
 }
 
@@ -920,14 +1019,17 @@ function updateSingleCardPreview() {
     if (isMegaMode) {
         // メガ予約モード: 各画像に計算された時刻を表示
         const startTime = document.getElementById('mega_start_time')?.value || '';
-        const interval = parseInt(document.getElementById('mega_interval')?.value) || 0;
+        const intervalSelect = parseInt(document.getElementById('mega_interval')?.value) || 0;
+        const intervalCustomMin = parseInt(document.getElementById('mega_interval_custom')?.value) || 0;
+        const intervalMinutes = intervalCustomMin > 0 ? intervalCustomMin : intervalSelect * 60;
         const text = document.getElementById('mega_text')?.value || '';
+        const useCSV = document.querySelector('input[name="mega_text_source"]:checked')?.value === 'csv';
         
         current.forEach((img, index) => {
             let timeStr = '日時未設定';
-            if (startTime && interval) {
+            if (startTime && intervalMinutes) {
                 const scheduleDate = new Date(startTime);
-                scheduleDate.setHours(scheduleDate.getHours() + interval * index);
+                scheduleDate.setMinutes(scheduleDate.getMinutes() + intervalMinutes * index);
                 timeStr = scheduleDate.toLocaleString('ja-JP', {
                     year: 'numeric',
                     month: '2-digit',
@@ -939,7 +1041,8 @@ function updateSingleCardPreview() {
                 timeStr = startTime;
             }
             
-            const displayText = text ? `${text} (${index + 1}/${current.length})` : `(${index + 1}/${current.length})`;
+            const baseText = useCSV ? (csvTexts[index] || '') : text;
+            const displayText = baseText ? `${baseText} (${index + 1}/${current.length})` : `(${index + 1}/${current.length})`;
             
             html += `
                 <div class="card-preview-item" draggable="true" data-index="${index}" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="handleDragEnd(event)">
@@ -988,11 +1091,13 @@ if (bulkTweetForm) {
         }
 
         const startTime = document.getElementById('bulk_start_time').value;
-        const interval = parseInt(document.getElementById('bulk_interval').value);
+        const intervalSelect = parseInt(document.getElementById('bulk_interval').value);
+        const intervalCustomMin = parseInt(document.getElementById('bulk_interval_custom')?.value) || 0;
+        const intervalMinutes = intervalCustomMin > 0 ? intervalCustomMin : (intervalSelect || 0) * 60;
         const textMode = document.getElementById('bulk_text_mode').value;
         const textContent = document.getElementById('bulk_text').value;
 
-        if (!startTime || !interval || !textMode) {
+        if (!startTime || !intervalMinutes || !textMode) {
             alert('すべての項目を入力してください');
             return;
         }
@@ -1003,7 +1108,7 @@ if (bulkTweetForm) {
 
         selectedImages.forEach((img, index) => {
             const scheduleDate = new Date(startDate);
-            scheduleDate.setHours(scheduleDate.getHours() + interval * index);
+            scheduleDate.setMinutes(scheduleDate.getMinutes() + intervalMinutes * index);
 
             let text = '';
             if (textMode === 'fixed') {
@@ -1075,10 +1180,12 @@ if (megaScheduleButton) {
         }
 
         const startTime = document.getElementById('mega_start_time')?.value;
-        const interval = parseInt(document.getElementById('mega_interval')?.value || '0', 10);
+        const intervalSelect = parseInt(document.getElementById('mega_interval')?.value || '0', 10);
+        const intervalCustomMin = parseInt(document.getElementById('mega_interval_custom')?.value || '0', 10) || 0;
+        const intervalMinutes = intervalCustomMin > 0 ? intervalCustomMin : intervalSelect * 60;
         const text = document.getElementById('mega_text')?.value || '';
 
-        if (!startTime || !interval) {
+        if (!startTime || !intervalMinutes) {
             alert('開始日時と間隔を入力してください');
             return;
         }
@@ -1101,7 +1208,7 @@ if (megaScheduleButton) {
         for (let i = 0; i < megaSelectedImages.length; i++) {
             const img = megaSelectedImages[i];
             const scheduleDate = new Date(startDate);
-            scheduleDate.setHours(scheduleDate.getHours() + interval * i);
+            scheduleDate.setMinutes(scheduleDate.getMinutes() + intervalMinutes * i);
 
             const year = scheduleDate.getFullYear();
             const month = String(scheduleDate.getMonth() + 1).padStart(2, '0');
@@ -1110,7 +1217,8 @@ if (megaScheduleButton) {
             const minutes = String(scheduleDate.getMinutes()).padStart(2, '0');
             const scheduledAtFormatted = `${year}-${month}-${day}T${hours}:${minutes}`;
 
-            const content = text ? `${text} (${i + 1}/${total})` : `(${i + 1}/${total})`;
+            const baseText = useCSV ? (csvTexts[i] || '') : text;
+            const content = baseText ? `${baseText} (${i + 1}/${total})` : `(${i + 1}/${total})`;
 
             // 進捗表示
             if (progressText) progressText.textContent = `${i + 1} / ${total} アップロード中...`;
