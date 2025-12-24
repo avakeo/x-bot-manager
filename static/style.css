@@ -283,6 +283,7 @@ select:focus {
 
 /* ギャラリー */
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.gallery-item-wrapper { position: relative; }
 .gallery-img, .gallery img { width: 100%; cursor: pointer; border-radius: 10px; transition: all 0.2s; position: relative; border: 2px solid transparent; }
 .gallery-img:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .gallery-img.selected, .gallery img.selected { border: 2px solid var(--accent); box-shadow: 0 10px 20px rgba(29, 161, 242, 0.25); }
@@ -307,6 +308,31 @@ select:focus {
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .gallery-img[data-order]::after { opacity: 1; transform: translateY(0); }
+
+/* 画像削除ボタン */
+.delete-img-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(220, 38, 38, 0.9);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s;
+    z-index: 10;
+}
+.gallery-item-wrapper:hover .delete-img-btn { opacity: 1; }
+.delete-img-btn:hover { background: rgba(220, 38, 38, 1); transform: scale(1.1); }
+
 /* ドロップゾーン */
 #drop-zone {
     border: 2px dashed var(--border);

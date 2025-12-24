@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>投稿管理 - X Manager</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
     <div class="container">
@@ -102,6 +102,7 @@
                                     <option value="fixed">固定テキスト（全部同じ）</option>
                                     <option value="number">連番（(1/N)を付ける）</option>
                                     <option value="filename">ファイル名を使用</option>
+                                    <option value="csv">CSVファイルから読み込む</option>
                                 </select>
                                 <small style="color:#666; display:block; margin-top:5px;">📝 各投稿のテキスト内容をどのように変えるか選択</small>
                             </div>
@@ -110,6 +111,36 @@
                                 <label for="bulk_text">テキスト</label>
                                 <textarea id="bulk_text" placeholder="全ツイート共通のテキストを入力&#10;（連番モードでは先頭に追加されます）"></textarea>
                                 <small id="bulk_text_preview" style="color:#666; margin-top:5px;"></small>
+                            </div>
+
+                            <div class="form-group" id="bulk_csv_input_group" style="display: none;">
+                                <label for="bulk_csv_file">CSVファイル</label>
+                                <input type="file" id="bulk_csv_file" accept=".csv" onchange="handleCSVUpload(event)">
+                                <small style="color:#666; display:block; margin-top:5px;">
+                                    📄 1行1ツイートとして読み込みます。画像の枚数と行数を合わせてください。
+                                    <br>➡️ ここにCSVをドラッグ＆ドロップしても読み込みできます。
+                                </small>
+                                
+                                <details style="margin-top:10px; padding:8px; background:var(--tab-bg); border:1px solid var(--border); border-radius:6px;">
+                                    <summary style="cursor:pointer; font-weight:600; color:var(--text);">💡 CSVテンプレート例</summary>
+                                    <div style="margin-top:8px;">
+                                        <p style="margin:4px 0; font-size:0.9em; color:var(--muted);">以下のように1行1ツイートで記述してください（UTF-8で保存）：</p>
+                                        <pre style="background:var(--card); border:1px solid var(--border); padding:10px; border-radius:4px; overflow-x:auto; font-size:0.85em; margin:8px 0;"><code>今日はいい天気ですね☀️
+明日は雨が降るかもしれません☔
+週末は晴れるといいな🌈
+来週から暑くなりそうです🌞</code></pre>
+                                        <p style="margin:4px 0; font-size:0.85em; color:var(--muted);">
+                                            ✅ 各行がそのまま各画像のツイート本文になります<br>
+                                            ✅ 絵文字やハッシュタグも使用できます<br>
+                                            ⚠️ 画像の枚数と行数を必ず合わせてください
+                                        </p>
+                                    </div>
+                                </details>
+                                
+                                <div id="csv_preview" style="margin-top:8px; padding:8px; background:var(--card); border:1px solid var(--border); border-radius:6px; display:none; max-height:150px; overflow-y:auto;">
+                                    <strong>読み込み内容:</strong>
+                                    <div id="csv_content" style="margin-top:4px; font-size:0.9em; color:var(--muted);"></div>
+                                </div>
                             </div>
                         </div>
 
@@ -187,7 +218,7 @@
             </aside>
         </div>
     </div>
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=8"></script>
     <script>
         // このページが開かれた時に実行
         const urlParams = new URLSearchParams(window.location.search);

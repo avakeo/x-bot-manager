@@ -4,6 +4,7 @@ from sqlmodel import Session, select, desc
 from models import (
     Account,
     Tweet,
+    CSVText,
     get_session,
     create_db_and_tables,
 )  # create_db_and_tablesを追加
@@ -324,6 +325,69 @@ async def upload_image(account_id: int, file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     return {"filename": unique_name}
+
+
+# 画像を削除
+@app.delete("/accounts/{account_id}/images/{image_name}")
+def delete_image(account_id: int, image_name: str):
+    file_path = f"{UPLOAD_DIR}/{account_id}/{image_name}"
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return {"message": "deleted"}
+    raise HTTPException(status_code=404, detail="Image not found")
+
+
+# CSVテキストを保存
+@app.post("/accounts/{account_id}/csv-texts")
+def save_csv_texts(
+    account_id: int, data: dict, session: Session = Depends(get_session)
+):
+    """
+    CSVから読み込んだテキストをDBに保存（最大100件）
+    リクエストボディ: {"texts": ["text1", "text2", ...]}
+    """
+    texts = data.get("texts", [])
+
+    # 100件制限
+    if len(texts) > 100:
+        raise HTTPException(status_code=400, detail="最大100件までです")
+
+    # 既存レコードを検索
+    statement = select(CSVText).where(CSVText.account_id == account_id)
+    existing = session.exec(statement).first()
+
+    if existing:
+        # 更新
+        existing.texts = json.dumps(texts, ensure_ascii=False)
+        existing.updated_at = datetime.now()
+        session.add(existing)
+    else:
+        # 新規作成
+        csv_text = CSVText(
+            account_id=account_id,
+            texts=json.dumps(texts, ensure_ascii=False),
+            updated_at=datetime.now(),
+        )
+        session.add(csv_text)
+
+    session.commit()
+    return {"message": "saved", "count": len(texts)}
+
+
+# CSVテキストを取得
+@app.get("/accounts/{account_id}/csv-texts")
+def get_csv_texts(account_id: int, session: Session = Depends(get_session)):
+    """
+    保存されているCSVテキストを取得
+    """
+    statement = select(CSVText).where(CSVText.account_id == account_id)
+    csv_text = session.exec(statement).first()
+
+    if csv_text:
+        texts = json.loads(csv_text.texts)
+        return {"texts": texts, "count": len(texts), "updated_at": csv_text.updated_at}
+
+    return {"texts": [], "count": 0}
 
 
 # 1件ずつ予約を登録するエンドポイント（メガ予約用）

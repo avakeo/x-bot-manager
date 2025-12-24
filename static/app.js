@@ -50,6 +50,9 @@ async function loadAccountDetail(id) {
     // 画像読み込み
     loadImages(id);
     
+    // CSVテキストを読み込み
+    await loadCSVTexts(id);
+    
     // 画像アップロード機能の初期化
     setupImageUpload(id);
     
@@ -64,6 +67,35 @@ async function loadAccountDetail(id) {
     // テーマとタブを初期化
     setupThemeToggle();
     switchFormTab(activeTab);
+}
+
+// CSVテキストをDBから読み込み
+async function loadCSVTexts(accountId) {
+    try {
+        const res = await fetch(`/accounts/${accountId}/csv-texts`);
+        const data = await res.json();
+        
+        if (data.texts && data.texts.length > 0) {
+            // 取得時にも \n を改行として扱う
+            csvTexts = data.texts.map(t => (t || '').toString().replace(/\\n/g, '\n'));
+            
+            // プレビュー表示
+            const previewDiv = document.getElementById('csv_preview');
+            const contentDiv = document.getElementById('csv_content');
+            
+            if (previewDiv && contentDiv) {
+                previewDiv.style.display = 'block';
+                contentDiv.innerHTML = csvTexts.map((txt, idx) => {
+                    const safe = (txt || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    return `<div style="padding:2px 0;">${idx + 1}. ${safe}</div>`;
+                }).join('');
+            }
+            
+            console.log(`CSVテキストを読み込みました: ${data.count}件`);
+        }
+    } catch (err) {
+        console.error('CSV読み込みエラー:', err);
+    }
 }
 
 // 予約時間の最小値を現在時刻に設定（過去時間は選択不可）
@@ -217,12 +249,49 @@ async function loadImages(accountId) {
     if (!gallery) return;
 
     gallery.innerHTML = images.map((img, idx) => `
-        <img src="/uploads/${accountId}/${img}" loading="lazy" alt="${img}" data-index="${idx}" data-name="${img}" class="gallery-img" onclick="selectImage(event, '${accountId}', '${img}', this, ${idx})">
+        <div class="gallery-item-wrapper" style="position:relative;">
+            <img src="/uploads/${accountId}/${img}" loading="lazy" alt="${img}" data-index="${idx}" data-name="${img}" class="gallery-img" onclick="selectImage(event, '${accountId}', '${img}', this, ${idx})">
+            <button class="delete-img-btn" onclick="deleteImage(event, '${accountId}', '${img}')" title="削除">×</button>
+        </div>
     `).join('');
 
     // 選択状態をリセット
     lastSelectedIndex = -1;
     updateSelectionBadges();
+}
+
+// 画像削除
+async function deleteImage(event, accountId, imageName) {
+    event.stopPropagation();
+    
+    if (!confirm(`画像「${imageName}」を削除しますか？`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/accounts/${accountId}/images/${encodeURIComponent(imageName)}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            // 選択リストから削除
+            selectedImages = selectedImages.filter(img => img.name !== imageName);
+            megaSelectedImages = megaSelectedImages.filter(img => img.name !== imageName);
+            
+            // ギャラリーを再読み込み
+            await loadImages(accountId);
+            
+            // プレビューを更新
+            updateSingleCardPreview();
+            updateBulkPreview();
+            updateImageCountDisplay();
+        } else {
+            alert('削除に失敗しました');
+        }
+    } catch (err) {
+        console.error('削除エラー:', err);
+        alert('削除エラーが発生しました');
+    }
 }
 
 // 画像アップロード設定
@@ -636,9 +705,118 @@ function toggleMegaMode() {
 }
 
 // 一括予約のテキストプレビューを更新
+// CSVインポートで読み込んだテキストを保持
+let csvTexts = [];
+
+// CSVファイルを共通で処理する関数（アップロード&ドラッグ&ドロップで利用）
+async function processCSVFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const text = e.target.result;
+            // CSVを行ごとに分割（空行を除外）し、\\n を実際の改行に変換
+            csvTexts = text
+                .split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+                .map(line => line.replace(/\\n/g, '\n'));
+            
+            // 100件制限
+            if (csvTexts.length > 100) {
+                alert('最大100件までです。先頭100件のみ使用します。');
+                csvTexts = csvTexts.slice(0, 100);
+            }
+            
+            // プレビュー表示
+            const previewDiv = document.getElementById('csv_preview');
+            const contentDiv = document.getElementById('csv_content');
+            
+            if (csvTexts.length > 0) {
+                previewDiv.style.display = 'block';
+                contentDiv.innerHTML = csvTexts.map((txt, idx) => 
+                    `<div style="padding:2px 0;">${idx + 1}. ${txt}</div>`
+                ).join('');
+            }
+            
+            // DBに保存
+            const urlParams = new URLSearchParams(window.location.search);
+            const accountId = urlParams.get('id');
+            
+            try {
+                const res = await fetch(`/accounts/${accountId}/csv-texts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ texts: csvTexts })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log(`CSVテキストを保存しました: ${data.count}件`);
+                }
+            } catch (err) {
+                console.error('CSV保存エラー:', err);
+            }
+            
+            // プレビューを更新
+            updateBulkPreview();
+            resolve();
+        };
+        reader.onerror = reject;
+        reader.readAsText(file, 'UTF-8');
+    });
+}
+
+async function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    await processCSVFile(file);
+}
+
+// CSV入力エリアにドラッグ＆ドロップで取り込めるようにする
+function setupCSVDragDropZone() {
+    const zone = document.getElementById('bulk_csv_input_group');
+    if (!zone || zone.dataset.dropBound === '1') return;
+    zone.dataset.dropBound = '1';
+
+    const resetStyle = () => {
+        zone.style.background = '';
+        zone.style.borderColor = '';
+    };
+
+    ['dragover', 'dragenter'].forEach(evt => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            zone.style.background = 'var(--tab-bg)';
+            zone.style.borderColor = 'var(--accent)';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            resetStyle();
+        });
+    });
+
+    zone.addEventListener('drop', async (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            alert('CSVファイルをドロップしてください');
+            return;
+        }
+        await processCSVFile(file);
+    });
+}
+
 function updateBulkTextPreview() {
     const textMode = document.getElementById('bulk_text_mode').value;
     const textInputGroup = document.getElementById('bulk_text_input_group');
+    const csvInputGroup = document.getElementById('bulk_csv_input_group');
+    
+    // まず全て非表示
+    textInputGroup.style.display = 'none';
+    csvInputGroup.style.display = 'none';
     
     if (textMode === 'fixed') {
         // 固定テキスト：テキスト入力が必須
@@ -652,11 +830,11 @@ function updateBulkTextPreview() {
         document.getElementById('bulk_text').required = false;
     } else if (textMode === 'filename') {
         // ファイル名モード：テキスト入力は不要
-        textInputGroup.style.display = 'none';
         document.getElementById('bulk_text').required = false;
-    } else {
-        textInputGroup.style.display = 'none';
-        document.getElementById('bulk_text').required = false;
+    } else if (textMode === 'csv') {
+        // CSVモード：CSVファイル選択を表示
+        csvInputGroup.style.display = 'block';
+        setupCSVDragDropZone();
     }
     
     updateBulkPreview();
@@ -695,6 +873,9 @@ function updateBulkPreview() {
             text = `${textContent ? textContent + ' ' : ''}(${index + 1}/${selectedImages.length})`;
         } else if (textMode === 'filename') {
             text = img.name.replace(/\.[^/.]+$/, '');
+        } else if (textMode === 'csv') {
+            // CSVから読み込んだテキストを使用
+            text = csvTexts[index] || `(テキスト${index + 1}は未設定)`;
         }
 
         const timeStr = scheduleDate.toLocaleString('ja-JP', {
@@ -831,6 +1012,9 @@ if (bulkTweetForm) {
                 text = `${textContent ? textContent + ' ' : ''}(${index + 1}/${selectedImages.length})`;
             } else if (textMode === 'filename') {
                 text = img.name.replace(/\.[^/.]+$/, '');
+            } else if (textMode === 'csv') {
+                // CSVから読み込んだテキストを使用
+                text = csvTexts[index] || '';
             }
 
             // 日時をローカル時刻でフォーマット（YYYY-MM-DDTHH:mm）
