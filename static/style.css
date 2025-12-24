@@ -21,6 +21,17 @@
     gap: 10px;
     align-items: center;
     box-shadow: var(--shadow);
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.card-preview-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-preview-item:active {
+    cursor: grabbing;
 }
 
 .card-preview-thumb {
@@ -45,6 +56,8 @@
     --shadow: 0 14px 40px rgba(17, 24, 39, 0.08);
     --tab-bg: #e9f5ff;
     --tab-text: #0b4c75;
+    --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
 }
 
 body.dark {
@@ -58,6 +71,8 @@ body.dark {
     --shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
     --tab-bg: rgba(56, 189, 248, 0.12);
     --tab-text: #e0f2fe;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
 }
 
 kbd {
@@ -257,8 +272,14 @@ select:focus {
 .history-col { flex: 1.5; border-left: 2px solid var(--border); }
 
 .history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.history-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); overflow-y: auto; max-height: 70vh; }
+.history-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); overflow-y: auto; max-height: 70vh; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 .history-card h4 { margin: 0 0 8px 0; color: var(--text); position: sticky; top: 0; background: var(--card); padding-bottom: 8px; border-bottom: 1px solid var(--border); z-index: 1; }
+
+/* カスタムスクロールバー（Webkit系） */
+.history-card::-webkit-scrollbar { width: 8px; }
+.history-card::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+.history-card::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; transition: background 0.2s; }
+.history-card::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
 /* ギャラリー */
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }

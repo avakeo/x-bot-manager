@@ -120,8 +120,34 @@ function setupCharCounter() {
 function setupSinglePreviewListeners() {
     const contentInput = document.getElementById('content');
     const dateInput = document.getElementById('scheduled_at');
+    const bulkStartTime = document.getElementById('bulk_start_time');
+    const bulkInterval = document.getElementById('bulk_interval');
+    const bulkTextMode = document.getElementById('bulk_text_mode');
+    const bulkText = document.getElementById('bulk_text');
+    const megaStartTime = document.getElementById('mega_start_time');
+    const megaInterval = document.getElementById('mega_interval');
+    const megaText = document.getElementById('mega_text');
+    
+    // 通常投稿モードのフィールド
     if (contentInput) contentInput.addEventListener('input', updateSingleCardPreview);
     if (dateInput) dateInput.addEventListener('change', updateSingleCardPreview);
+    
+    // 一括予約モードのフィールドを監視
+    if (bulkStartTime) bulkStartTime.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
+    if (bulkInterval) bulkInterval.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
+    if (bulkTextMode) bulkTextMode.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
+    if (bulkText) {
+        bulkText.addEventListener('input', () => { if (activeTab === 'bulk') updateBulkPreview(); });
+        bulkText.addEventListener('change', () => { if (activeTab === 'bulk') updateBulkPreview(); });
+    }
+    
+    // メガ予約モードのフィールドを監視
+    if (megaStartTime) megaStartTime.addEventListener('change', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
+    if (megaInterval) megaInterval.addEventListener('change', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
+    if (megaText) {
+        megaText.addEventListener('input', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
+        megaText.addEventListener('change', () => { if (activeTab === 'mega') updateSingleCardPreview(); });
+    }
 }
 
 // グローバル変数で選択画像を管理
@@ -680,7 +706,8 @@ function updateBulkPreview() {
         });
 
         html += `
-            <div class="card-preview-item">
+            <div class="card-preview-item" draggable="true" data-index="${index}" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="handleDragEnd(event)">
+                <span class="drag-handle" style="cursor:move; margin-right:8px; color:var(--muted); font-size:1.2em;">⋮⋮</span>
                 <img class="card-preview-thumb" src="${img.src}" alt="${img.name}">
                 <div class="card-preview-meta">
                     <h5>投稿 ${index + 1} / ${selectedImages.length}</h5>
@@ -707,21 +734,61 @@ function updateSingleCardPreview() {
         return;
     }
 
-    const scheduledAt = document.getElementById('scheduled_at')?.value || '';
-    const text = document.getElementById('content')?.value || '';
-
     let html = '';
-    current.forEach((img, index) => {
-        html += `
-            <div class="card-preview-item">
-                <img class="card-preview-thumb" src="${img.src}" alt="${img.name}">
-                <div class="card-preview-meta">
-                    <h5>画像 ${index + 1}</h5>
-                    <p>${text || '(テキストなし)'}<br><small style="color:inherit;">${scheduledAt || '日時未設定'} ・ ${img.name}</small></p>
+    
+    if (isMegaMode) {
+        // メガ予約モード: 各画像に計算された時刻を表示
+        const startTime = document.getElementById('mega_start_time')?.value || '';
+        const interval = parseInt(document.getElementById('mega_interval')?.value) || 0;
+        const text = document.getElementById('mega_text')?.value || '';
+        
+        current.forEach((img, index) => {
+            let timeStr = '日時未設定';
+            if (startTime && interval) {
+                const scheduleDate = new Date(startTime);
+                scheduleDate.setHours(scheduleDate.getHours() + interval * index);
+                timeStr = scheduleDate.toLocaleString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } else if (startTime) {
+                timeStr = startTime;
+            }
+            
+            const displayText = text ? `${text} (${index + 1}/${current.length})` : `(${index + 1}/${current.length})`;
+            
+            html += `
+                <div class="card-preview-item" draggable="true" data-index="${index}" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="handleDragEnd(event)">
+                    <span class="drag-handle" style="cursor:move; margin-right:8px; color:var(--muted); font-size:1.2em;">⋮⋮</span>
+                    <img class="card-preview-thumb" src="${img.src}" alt="${img.name}">
+                    <div class="card-preview-meta">
+                        <h5>画像 ${index + 1}</h5>
+                        <p>${displayText}<br><small style="color:inherit;">${timeStr} ・ ${img.name}</small></p>
+                    </div>
                 </div>
-            </div>
-        `;
-    });
+            `;
+        });
+    } else {
+        // 通常投稿モード: シンプルな表示
+        const scheduledAt = document.getElementById('scheduled_at')?.value || '';
+        const text = document.getElementById('content')?.value || '';
+        
+        current.forEach((img, index) => {
+            html += `
+                <div class="card-preview-item" draggable="true" data-index="${index}" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="handleDragEnd(event)">
+                    <span class="drag-handle" style="cursor:move; margin-right:8px; color:var(--muted); font-size:1.2em;">⋮⋮</span>
+                    <img class="card-preview-thumb" src="${img.src}" alt="${img.name}">
+                    <div class="card-preview-meta">
+                        <h5>画像 ${index + 1}</h5>
+                        <p>${text || '(テキストなし)'}<br><small style="color:inherit;">${scheduledAt || '日時未設定'} ・ ${img.name}</small></p>
+                    </div>
+                </div>
+            `;
+        });
+    }
 
     list.innerHTML = html;
 }
@@ -904,20 +971,61 @@ if (megaScheduleButton) {
 const originalUpdateSelectedImagesPreview = updateSelectedImagesPreview;
 updateSelectedImagesPreview = function() {
     originalUpdateSelectedImagesPreview.call(this);
-    if (document.getElementById('bulkModeToggle')?.checked) {
+    if (activeTab === 'bulk') {
         updateBulkPreview();
     }
 };
 
-// 一括モード関連フィールドの変更を監視
-document.addEventListener('change', (e) => {
-    if (['bulk_start_time', 'bulk_interval', 'bulk_text_mode', 'bulk_text'].includes(e.target.id)) {
-        updateBulkPreview();
-    }
-});
+// ドラッグ&ドロップで順番変更
+let draggedIndex = null;
 
-document.addEventListener('input', (e) => {
-    if (e.target.id === 'bulk_text') {
-        updateBulkPreview();
+function handleDragStart(e) {
+    draggedIndex = parseInt(e.target.dataset.index);
+    e.target.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('.card-preview-item');
+    if (target && target.dataset.index !== undefined) {
+        target.style.borderTop = '3px solid var(--accent)';
     }
-});
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    const target = e.target.closest('.card-preview-item');
+    if (!target || draggedIndex === null) return;
+    
+    const dropIndex = parseInt(target.dataset.index);
+    if (draggedIndex === dropIndex) return;
+
+    const current = isMegaMode ? megaSelectedImages : selectedImages;
+    const [movedItem] = current.splice(draggedIndex, 1);
+    current.splice(dropIndex, 0, movedItem);
+
+    if (isMegaMode) {
+        megaSelectedImages = current;
+    } else {
+        selectedImages = current;
+    }
+
+    updateSelectionBadges();
+    if (activeTab === 'bulk') {
+        updateBulkPreview();
+    } else {
+        updateSingleCardPreview();
+    }
+
+    target.style.borderTop = '';
+}
+
+function handleDragEnd(e) {
+    e.target.style.opacity = '';
+    document.querySelectorAll('.card-preview-item').forEach(item => {
+        item.style.borderTop = '';
+    });
+    draggedIndex = null;
+}
