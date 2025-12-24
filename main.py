@@ -10,6 +10,7 @@ from models import (
 from services.encryption import encrypt_data
 from services.x_service import send_hello_world  # 後ほど作成する関数
 from datetime import datetime
+from uuid import uuid4
 from typing import List, Optional
 import json
 
@@ -312,11 +313,72 @@ async def upload_image(account_id: int, file: UploadFile = File(...)):
     path = f"{UPLOAD_DIR}/{account_id}"
     os.makedirs(path, exist_ok=True)  # フォルダがなければ作成
 
-    file_path = os.path.join(path, file.filename)
+    # ファイル名衝突を避けるためUUIDを付与
+    original_name = file.filename
+    name, ext = os.path.splitext(original_name)
+    safe_ext = ext if ext else ""
+    unique_name = f"{name}_{uuid4().hex}{safe_ext}"
+
+    file_path = os.path.join(path, unique_name)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    return {"filename": file.filename}
+    return {"filename": unique_name}
+
+
+# 1件ずつ予約を登録するエンドポイント（メガ予約用）
+@app.post("/accounts/{account_id}/bulk-schedule-single")
+def schedule_single_tweet(
+    account_id: int, data: dict, session: Session = Depends(get_session)
+):
+    """
+    単一ツイートを予約登録するエンドポイント。
+    フロントエンド側で画像ごとに順次呼び出す。
+    期待するリクエストペイロード例:
+    {
+        "content": "任意のテキスト",
+        "image_name": "abc.jpg",
+        "scheduled_at": "2025-01-01T10:00"
+    }
+    """
+
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    content = (data.get("content") or "").strip()
+    image_name = data.get("image_name")
+    scheduled_at_str = data.get("scheduled_at")
+
+    if not content and not image_name:
+        raise HTTPException(
+            status_code=400, detail="テキストまたは画像を指定してください"
+        )
+
+    if not scheduled_at_str:
+        raise HTTPException(status_code=400, detail="予約日時を指定してください")
+
+    try:
+        scheduled_at = datetime.fromisoformat(scheduled_at_str)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="無効な日時形式です")
+
+    tweet = Tweet(
+        account_id=account_id,
+        content=content,
+        image_names=json.dumps([image_name] if image_name else []),
+        is_posted=False,
+        scheduled_at=scheduled_at,
+    )
+
+    session.add(tweet)
+    try:
+        session.commit()
+    except Exception as exc:  # pragma: no cover - DB例外ハンドリング
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"DB保存エラー: {exc}")
+
+    return {"status": "success"}
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

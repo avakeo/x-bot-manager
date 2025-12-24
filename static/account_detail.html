@@ -14,9 +14,53 @@
 
         <div class="container-3col">
             <aside class="column images-col">
-                <h3>画像</h3>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <h3 style="margin:0;">画像</h3>
+                    <label style="font-size:0.9em; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" id="megaModeToggle" onchange="toggleMegaMode()">
+                        <span>メガ予約モード</span>
+                    </label>
+                </div>
                 <div id="drop-zone">ドラッグ＆ドロップで追加</div>
                 <div id="image-gallery" class="gallery"></div>
+
+                <div id="megaSchedulerPanel" style="margin-top:12px; padding:10px; border:1px solid #eee; border-radius:6px; background:#fbfbfb; display:none;">
+                    <h4 style="margin:0 0 8px 0; font-size:0.95em;">メガ予約モード（大量画像）</h4>
+                    <small style="color:#666; display:block; margin-bottom:8px;">最大150枚を1枚ずつ順次送信します。</small>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="mega_start_time" style="margin-bottom:4px;">開始日時</label>
+                        <input type="datetime-local" id="mega_start_time">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="mega_interval" style="margin-bottom:4px;">投稿間隔</label>
+                        <select id="mega_interval">
+                            <option value="">選択してください</option>
+                            <option value="1">1時間</option>
+                            <option value="2">2時間</option>
+                            <option value="3">3時間</option>
+                            <option value="6">6時間</option>
+                            <option value="12">12時間</option>
+                            <option value="24">1日</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="mega_text" style="margin-bottom:4px;">テキスト（任意）</label>
+                        <input type="text" id="mega_text" placeholder="例: Day">
+                        <small style="color:#666;">連番は自動で (1/N) 形式が付きます。</small>
+                    </div>
+                    <div style="margin:8px 0; font-size:0.9em; color:#333;">選択中: <span id="mega-image-count">0 / 150</span></div>
+                    <button type="button" id="mega_schedule_btn" class="btn-save" style="background:#ff7a1a; margin-top:4px;">メガ予約を実行</button>
+                    <div id="mega-progress" style="margin-top:10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.85em; color:#666;">
+                            <span id="mega-progress-text">未開始</span>
+                            <span id="mega-progress-status"></span>
+                        </div>
+                        <div style="position:relative; background:#eee; border-radius:4px; height:8px; overflow:hidden; margin-top:6px;">
+                            <div id="mega-progress-bar" style="position:absolute; left:0; top:0; height:100%; width:0; background:#1da1f2; transition:width 0.2s ease;"></div>
+                        </div>
+                    </div>
+                    <small style="color:#777; display:block; margin-top:8px;">1枚ずつ順次予約します。画面を閉じずにお待ちください。</small>
+                </div>
             </aside>
 
             <main class="column form-col">

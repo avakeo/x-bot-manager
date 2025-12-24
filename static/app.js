@@ -64,6 +64,7 @@ async function loadAccountDetail(id) {
 function setMinimumDateTime() {
     const scheduledAtInput = document.getElementById('scheduled_at');
     const bulkStartTimeInput = document.getElementById('bulk_start_time');
+    const megaStartTimeInput = document.getElementById('mega_start_time');
     
     // 現在時刻を取得して5分後の時刻を設定（推奨値）
     const now = new Date();
@@ -87,6 +88,10 @@ function setMinimumDateTime() {
         bulkStartTimeInput.min = minDateTime;
         bulkStartTimeInput.value = minDateTime;
     }
+    if (megaStartTimeInput) {
+        megaStartTimeInput.min = minDateTime;
+        megaStartTimeInput.value = minDateTime;
+    }
 }
 
 // テキストエリアの文字数カウント
@@ -107,7 +112,10 @@ function setupCharCounter() {
 }
 
 // グローバル変数で選択画像を管理
-let selectedImages = []; // 選択画像の配列（最大4枚）
+let selectedImages = []; // 通常/小規模用（最大4枚）
+let megaSelectedImages = []; // メガ予約用（最大150枚想定）
+let isMegaMode = false;
+const MEGA_MAX = 150;
 
 // 画像一覧の読み込み
 async function loadImages(accountId) {
@@ -192,12 +200,29 @@ async function uploadImages(accountId, files) {
 // 画像選択（複数対応、最大4枚）
 function selectImage(accountId, imageName, imgElement) {
     const imageUrl = imgElement.src;
-    
-    // すでに選択されているか確認
+
+    // メガモード: 150枚まで選択可能（プレビュー簡易）
+    if (isMegaMode) {
+        const idx = megaSelectedImages.findIndex(img => img.src === imageUrl);
+        if (idx === -1) {
+            if (megaSelectedImages.length >= MEGA_MAX) {
+                alert(`最大${MEGA_MAX}枚まで選択できます`);
+                return;
+            }
+            megaSelectedImages.push({ src: imageUrl, name: imageName });
+            imgElement.classList.add('selected');
+        } else {
+            megaSelectedImages.splice(idx, 1);
+            imgElement.classList.remove('selected');
+        }
+        updateMegaSelectionStatus();
+        return;
+    }
+
+    // 通常/小規模モード: 4枚まで
     const index = selectedImages.findIndex(img => img.src === imageUrl);
     
     if (index === -1) {
-        // 選択されていない → 追加（ただし4枚まで）
         if (selectedImages.length < 4) {
             selectedImages.push({ src: imageUrl, name: imageName });
             imgElement.classList.add('selected');
@@ -206,12 +231,10 @@ function selectImage(accountId, imageName, imgElement) {
             return;
         }
     } else {
-        // すでに選択されている → 削除
         selectedImages.splice(index, 1);
         imgElement.classList.remove('selected');
     }
     
-    // プレビューを更新
     updateSelectedImagesPreview();
 }
 
@@ -273,45 +296,62 @@ function clearSelectedImage() {
     updateSelectedImagesPreview();
 }
 
+function clearMegaSelectedImages() {
+    megaSelectedImages = [];
+    document.querySelectorAll('.gallery-img').forEach(i => i.classList.remove('selected'));
+    updateMegaSelectionStatus();
+}
+
+function updateMegaSelectionStatus() {
+    const counter = document.getElementById('mega-image-count');
+    if (counter) {
+        counter.textContent = `${megaSelectedImages.length} / ${MEGA_MAX}`;
+    }
+}
+
 // タイムライン描画（次回投稿を真ん中に配置）
 function renderTimeline(tweets) {
     const timeline = document.getElementById('combined-timeline');
     if (!timeline) return;
     
-    const now = new Date();
-    
-    // 投稿済みと未投稿に分類
+    // 最新20件を上限に表示して負荷を軽減
     const posted = tweets.filter(t => t.is_posted).sort((a, b) => new Date(b.posted_at) - new Date(a.posted_at));
     const scheduled = tweets.filter(t => !t.is_posted).sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-    
-    // 次回投稿（scheduled の最初）
-    const nextTweet = scheduled.length > 0 ? scheduled[0] : null;
-    const otherScheduled = scheduled.slice(1);
-    
+
+    const MAX_ITEMS = 20;
+    const postedLimited = posted.slice(0, 5); // 投稿済みは最新5件まで
+    const remainingSlots = Math.max(MAX_ITEMS - postedLimited.length, 0);
+    const scheduledLimited = scheduled.slice(0, remainingSlots);
+    const truncated = posted.length > postedLimited.length || scheduled.length > scheduledLimited.length;
+
+    const nextTweet = scheduledLimited.length > 0 ? scheduledLimited[0] : null;
+    const otherScheduled = scheduledLimited.slice(1);
+
     let html = '';
-    
-    // 最近の投稿（最大5件）
-    if (posted.length > 0) {
+
+    if (postedLimited.length > 0) {
         html += '<h4 style="color:#666; font-size:0.9em; margin:15px 0 10px 0;">最近の投稿</h4>';
-        posted.slice(0, 5).forEach(t => {
+        postedLimited.forEach(t => {
             html += renderTweetItem(t, true);
         });
     }
-    
-    // 次回投稿（目立つように）
+
     if (nextTweet) {
         html += '<h4 style="color:#1da1f2; font-size:0.9em; margin:20px 0 10px 0;">📍 次回投稿</h4>';
         html += renderTweetItem(nextTweet, false, true);
     }
-    
-    // その他の予約
+
     if (otherScheduled.length > 0) {
         html += '<h4 style="color:#666; font-size:0.9em; margin:20px 0 10px 0;">予約済み</h4>';
         otherScheduled.forEach(t => {
             html += renderTweetItem(t, false);
         });
     }
-    
+
+    if (truncated) {
+        html += '<p style="color:#999; margin-top:10px; font-size:0.85em;">※ 最新20件のみ表示しています。残りは省略。</p>';
+    }
+
     timeline.innerHTML = html || '<p style="color:#999;">まだ投稿がありません</p>';
 }
 
@@ -430,6 +470,19 @@ function toggleBulkMode() {
     if (isBulkMode) {
         updateBulkPreview();
     }
+}
+
+// メガ予約モードの切り替え（大量画像用）
+function toggleMegaMode() {
+    isMegaMode = document.getElementById('megaModeToggle')?.checked || false;
+    clearSelectedImage();
+    clearMegaSelectedImages();
+    const normalSelectedLabel = document.getElementById('image-count');
+    if (normalSelectedLabel) normalSelectedLabel.textContent = '選択中：0 / 4';
+    updateMegaSelectionStatus();
+
+    const megaPanel = document.getElementById('megaSchedulerPanel');
+    if (megaPanel) megaPanel.style.display = isMegaMode ? 'block' : 'none';
 }
 
 // 一括予約のテキストプレビューを更新
@@ -601,6 +654,95 @@ if (bulkTweetForm) {
             }
         } catch (err) {
             alert(`❌ 通信エラーが発生しました:\n${err.message}`);
+        }
+    };
+}
+
+// === メガ予約（大量画像を1枚ずつ順次送信） ===
+const megaScheduleButton = document.getElementById('mega_schedule_btn');
+if (megaScheduleButton) {
+    megaScheduleButton.onclick = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+
+        if (megaSelectedImages.length === 0) {
+            alert('画像を選択してください（最大150枚）');
+            return;
+        }
+
+        const startTime = document.getElementById('mega_start_time')?.value;
+        const interval = parseInt(document.getElementById('mega_interval')?.value || '0', 10);
+        const text = document.getElementById('mega_text')?.value || '';
+
+        if (!startTime || !interval) {
+            alert('開始日時と間隔を入力してください');
+            return;
+        }
+
+        const startDate = new Date(startTime);
+        const total = megaSelectedImages.length;
+
+        const progressText = document.getElementById('mega-progress-text');
+        const progressBar = document.getElementById('mega-progress-bar');
+        const statusArea = document.getElementById('mega-progress-status');
+
+        if (progressText) progressText.textContent = '開始準備中...';
+        if (progressBar) progressBar.style.width = '0%';
+        if (statusArea) statusArea.textContent = '';
+
+        let success = 0;
+        let failed = 0;
+
+        // 順次送信（await で1件ずつ）
+        for (let i = 0; i < megaSelectedImages.length; i++) {
+            const img = megaSelectedImages[i];
+            const scheduleDate = new Date(startDate);
+            scheduleDate.setHours(scheduleDate.getHours() + interval * i);
+
+            const year = scheduleDate.getFullYear();
+            const month = String(scheduleDate.getMonth() + 1).padStart(2, '0');
+            const day = String(scheduleDate.getDate()).padStart(2, '0');
+            const hours = String(scheduleDate.getHours()).padStart(2, '0');
+            const minutes = String(scheduleDate.getMinutes()).padStart(2, '0');
+            const scheduledAtFormatted = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+            const content = text ? `${text} (${i + 1}/${total})` : `(${i + 1}/${total})`;
+
+            // 進捗表示
+            if (progressText) progressText.textContent = `${i + 1} / ${total} アップロード中...`;
+            if (progressBar) progressBar.style.width = `${Math.round(((i + 1) / total) * 100)}%`;
+
+            try {
+                const res = await fetch(`/accounts/${id}/bulk-schedule-single`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content,
+                        image_name: img.name,
+                        scheduled_at: scheduledAtFormatted
+                    })
+                });
+
+                if (res.ok) {
+                    success += 1;
+                } else {
+                    failed += 1;
+                }
+            } catch (err) {
+                failed += 1;
+            }
+        }
+
+        if (progressText) progressText.textContent = `完了: 成功 ${success} / 失敗 ${failed}`;
+        if (progressBar) progressBar.style.width = '100%';
+        if (statusArea) statusArea.textContent = failed === 0 ? '✅ 全件予約しました' : `⚠️ 一部失敗しました（成功 ${success}, 失敗 ${failed}）`;
+
+        if (success > 0) {
+            alert(`✅ ${success}件を予約しました${failed ? `（失敗 ${failed}件）` : ''}`);
+            clearMegaSelectedImages();
+            location.reload();
+        } else {
+            alert('❌ 予約に失敗しました。入力内容を確認してください。');
         }
     };
 }

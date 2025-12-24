@@ -319,3 +319,23 @@ input[type="text"]:focus {
     margin-top: 8px;
     border-radius: 2px;
 }
+
+/* メガ予約モード */
+#megaSchedulerPanel select,
+#megaSchedulerPanel input[type="text"],
+#megaSchedulerPanel input[type="datetime-local"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+#megaSchedulerPanel select:focus,
+#megaSchedulerPanel input[type="text"]:focus,
+#megaSchedulerPanel input[type="datetime-local"]:focus {
+    outline: none;
+    border-color: #1da1f2;
+    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
+}
