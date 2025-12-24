@@ -1,15 +1,90 @@
+.card-preview-section {
+    margin-top: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+}
+
+.card-preview-list {
+    display: grid;
+    gap: 10px;
+}
+
+.card-preview-item {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    background: var(--card);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    box-shadow: var(--shadow);
+}
+
+.card-preview-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+}
+
+.card-preview-meta h5 { margin: 0 0 6px 0; font-size: 0.95em; color: var(--text); }
+.card-preview-meta p { margin: 0; color: var(--muted); font-size: 0.88em; }
 /* 共通設定 */
+:root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #5f6b7a;
+    --border: #e5e7eb;
+    --accent: #1da1f2;
+    --accent-strong: #0d8add;
+    --shadow: 0 14px 40px rgba(17, 24, 39, 0.08);
+    --tab-bg: #e9f5ff;
+    --tab-text: #0b4c75;
+}
+
+body.dark {
+    --bg: #0f172a;
+    --card: #111827;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --border: #1f2937;
+    --accent: #38bdf8;
+    --accent-strong: #0ea5e9;
+    --shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+    --tab-bg: rgba(56, 189, 248, 0.12);
+    --tab-text: #e0f2fe;
+}
+
+kbd {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
 body {
-    font-family: -apple-system, sans-serif;
-    background: #f8f9fa;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
     margin: 0;
-    padding: 20px;
-    color: #333;
+    padding: 0;
+    color: var(--text);
+    transition: background 0.25s ease, color 0.25s ease;
 }
 
 .container {
-    max-width: 1400px;
-    margin: 0 auto;
+    max-width: 100%;
+    margin: 0;
+    padding: 20px;
 }
 
 /* ヘッダー */
@@ -21,15 +96,33 @@ header {
 }
 
 .btn-add {
-    background: #1da1f2;
+    background: var(--accent);
     color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 25px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 700;
     text-decoration: none;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
+
+.btn-add:hover { transform: translateY(-1px); background: var(--accent-strong); }
+.btn-add:active { transform: translateY(0); box-shadow: none; }
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-ghost:hover { background: var(--tab-bg); color: var(--tab-text); border-color: var(--accent); }
 
 /* ダッシュボード（カード） */
 .grid {
@@ -39,17 +132,18 @@ header {
 }
 
 .card {
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow);
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .card h3 {
     margin: 0 0 15px 0;
-    color: #1da1f2;
-    border-bottom: 1px solid #eee;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 10px;
 }
 
@@ -57,11 +151,12 @@ header {
     margin: 8px 0;
     font-size: 0.9em;
     line-height: 1.4;
+    color: var(--text);
 }
 
 .card .label {
     font-weight: bold;
-    color: #666;
+    color: var(--muted);
     font-size: 0.8em;
     display: block;
 }
@@ -75,43 +170,33 @@ header {
     display: block;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #333;
-    font-size: 0.9em;
+    color: var(--text);
+    font-size: 0.95em;
 }
 
-textarea {
+textarea,
+input[type="datetime-local"],
+input[type="text"],
+select {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-family: -apple-system, sans-serif;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     font-size: 14px;
     box-sizing: border-box;
-    resize: vertical;
-    min-height: 100px;
+    background: var(--card);
+    color: var(--text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
 }
 
-textarea:focus {
-    outline: none;
-    border-color: #1da1f2;
-    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
-}
-
-input[type="datetime-local"],
-input[type="text"] {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 14px;
-}
-
+textarea:focus,
 input[type="datetime-local"]:focus,
-input[type="text"]:focus {
+input[type="text"]:focus,
+select:focus {
     outline: none;
-    border-color: #1da1f2;
-    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.18);
 }
 
 #char-count {
@@ -141,58 +226,96 @@ input[type="text"]:focus {
 
 .btn-save {
     width: 100%;
-    background: #28a745;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: white;
     border: none;
-    padding: 12px;
-    border-radius: 6px;
+    padding: 14px;
+    border-radius: 12px;
     cursor: pointer;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
+.btn-save:hover { transform: translateY(-1px); }
+.btn-save:active { transform: translateY(0); box-shadow: none; }
 .container-3col {
     display: flex;
     gap: 20px;
     height: 80vh;
 }
 .column {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
+    background: var(--card);
+    padding: 18px;
+    border-radius: 16px;
     overflow-y: auto;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
 }
-.images-col { flex: 1; }  /* 左 */
-.form-col   { flex: 2; }  /* 真ん中 */
-.history-col { flex: 1.5; border-left: 2px solid #eee; } /* 右 */
+.images-col { flex: 1; }
+.form-col   { flex: 2; }
+.history-col { flex: 1.5; border-left: 2px solid var(--border); }
+
+.history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.history-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); overflow-y: auto; max-height: 70vh; }
+.history-card h4 { margin: 0 0 8px 0; color: var(--text); position: sticky; top: 0; background: var(--card); padding-bottom: 8px; border-bottom: 1px solid var(--border); z-index: 1; }
 
 /* ギャラリー */
-.gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
-.gallery-img, .gallery img { width: 100%; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
-.gallery-img.selected, .gallery img.selected { border: 3px solid #1da1f2; box-shadow: 0 0 8px rgba(29, 161, 242, 0.3); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.gallery-img, .gallery img { width: 100%; cursor: pointer; border-radius: 10px; transition: all 0.2s; position: relative; border: 2px solid transparent; }
+.gallery-img:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.gallery-img.selected, .gallery img.selected { border: 2px solid var(--accent); box-shadow: 0 10px 20px rgba(29, 161, 242, 0.25); }
+.gallery-img::after {
+    content: attr(data-order);
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.gallery-img[data-order]::after { opacity: 1; transform: translateY(0); }
 /* ドロップゾーン */
 #drop-zone {
-    border: 2px dashed #ccc;
-    padding: 20px;
+    border: 2px dashed var(--border);
+    padding: 22px;
     text-align: center;
     cursor: pointer;
-    margin-bottom: 10px;
-    border-radius: 6px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.02);
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 #drop-zone:hover {
-    background: #f0f0f0;
+    background: var(--tab-bg);
+    border-color: var(--accent);
 }
 
 /* タイムライン */
 .timeline-item {
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 6px;
-    background: #f9f9f9;
-    border-left: 3px solid #ddd;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0,0,0,0.02), rgba(29,161,242,0.05));
+    border-left: 4px solid var(--border);
+    box-shadow: var(--shadow);
 }
 .timeline-item.posted {
-    border-left-color: #28a745;
+    border-left-color: #22c55e;
 }
 .timeline-item.scheduled {
-    border-left-color: #ffc107;
+    border-left-color: #facc15;
 }
 .status-badge {
     display: inline-block;
@@ -211,13 +334,15 @@ input[type="text"]:focus {
 .image-preview-multi {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 10px;
-    background: #f9f9f9;
-    border-radius: 6px;
+    gap: 10px;
+    padding: 12px;
+    background: var(--card);
+    border-radius: 12px;
     min-height: 100px;
     align-items: center;
     justify-items: center;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
 }
 
 .image-preview-multi img {
@@ -260,31 +385,17 @@ input[type="text"]:focus {
     background: #c82333;
 }
 /* 一括予約モード用スタイル */
-#bulkTweetForm select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 14px;
-    background: white;
-    cursor: pointer;
-}
-
-#bulkTweetForm select:focus {
-    outline: none;
-    border-color: #1da1f2;
-    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
-}
+#bulkTweetForm select { cursor: pointer; }
 
 #bulk_preview {
-    background: linear-gradient(135deg, #f9f9f9 0%, #ffffff 100%);
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 10px;
+    background: linear-gradient(135deg, rgba(29,161,242,0.04), rgba(255,255,255,0.9));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
     max-height: 300px;
     overflow-y: auto;
     font-size: 0.9em;
+    box-shadow: var(--shadow);
 }
 
 #bulk_preview > div > div {
@@ -320,22 +431,40 @@ input[type="text"]:focus {
     border-radius: 2px;
 }
 
-/* メガ予約モード */
-#megaSchedulerPanel select,
-#megaSchedulerPanel input[type="text"],
-#megaSchedulerPanel input[type="datetime-local"] {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 14px;
+/* タブ */
+.tab-nav {
+    display: inline-flex;
+    gap: 8px;
+    background: var(--card);
+    padding: 6px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
 }
 
-#megaSchedulerPanel select:focus,
-#megaSchedulerPanel input[type="text"]:focus,
-#megaSchedulerPanel input[type="datetime-local"]:focus {
-    outline: none;
-    border-color: #1da1f2;
-    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
+.tab-btn {
+    border: none;
+    background: transparent;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.1px;
+    transition: all 0.15s ease;
+}
+
+.tab-btn:hover { color: var(--text); background: rgba(0,0,0,0.03); }
+.tab-btn.active {
+    background: var(--tab-bg);
+    color: var(--tab-text);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tab-panel { animation: fadeIn 0.18s ease; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }

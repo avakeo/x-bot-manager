@@ -58,6 +58,12 @@ async function loadAccountDetail(id) {
     
     // テキストエリアの文字数カウント
     setupCharCounter();
+
+    setupSinglePreviewListeners();
+
+    // テーマとタブを初期化
+    setupThemeToggle();
+    switchFormTab(activeTab);
 }
 
 // 予約時間の最小値を現在時刻に設定（過去時間は選択不可）
@@ -111,11 +117,70 @@ function setupCharCounter() {
     updateCount();
 }
 
+function setupSinglePreviewListeners() {
+    const contentInput = document.getElementById('content');
+    const dateInput = document.getElementById('scheduled_at');
+    if (contentInput) contentInput.addEventListener('input', updateSingleCardPreview);
+    if (dateInput) dateInput.addEventListener('change', updateSingleCardPreview);
+}
+
 // グローバル変数で選択画像を管理
 let selectedImages = []; // 通常/小規模用（最大4枚）
 let megaSelectedImages = []; // メガ予約用（最大150枚想定）
 let isMegaMode = false;
 const MEGA_MAX = 150;
+let lastSelectedIndex = -1; // Shift範囲選択用
+let activeTab = 'single'; // single | bulk
+
+// テーマ切替
+function applyTheme(mode) {
+    if (mode === 'dark') {
+        document.body.classList.add('dark');
+    } else {
+        document.body.classList.remove('dark');
+    }
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = mode === 'dark' ? '☀️ ライト' : '🌙 ダーク';
+}
+
+function setupThemeToggle() {
+    const btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    const saved = localStorage.getItem('xbm-theme') || 'light';
+    applyTheme(saved);
+    btn.onclick = () => {
+        const next = document.body.classList.contains('dark') ? 'light' : 'dark';
+        localStorage.setItem('xbm-theme', next);
+        applyTheme(next);
+    };
+}
+
+// タブ切替
+function switchFormTab(tab) {
+    activeTab = tab;
+    isMegaMode = tab === 'mega';
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+
+    const singlePanel = document.getElementById('tab-single');
+    const bulkPanel = document.getElementById('tab-bulk');
+    const megaPanel = document.getElementById('tab-mega');
+    if (singlePanel && bulkPanel && megaPanel) {
+        singlePanel.style.display = tab === 'single' ? 'block' : 'none';
+        bulkPanel.style.display = tab === 'bulk' ? 'block' : 'none';
+        megaPanel.style.display = tab === 'mega' ? 'block' : 'none';
+    }
+
+    // プレビュー・バッジをモードに合わせて更新
+    updateSelectionBadges(null, isMegaMode ? megaSelectedImages : selectedImages);
+    updateSelectedImagesPreview();
+
+    if (tab === 'bulk') {
+        updateBulkPreview();
+    } else if (tab === 'single') {
+        updateSingleCardPreview();
+    }
+}
 
 // 画像一覧の読み込み
 async function loadImages(accountId) {
@@ -124,10 +189,14 @@ async function loadImages(accountId) {
     
     const gallery = document.getElementById('image-gallery');
     if (!gallery) return;
-    
-    gallery.innerHTML = images.map(img => `
-        <img src="/uploads/${accountId}/${img}" alt="${img}" class="gallery-img" onclick="selectImage('${accountId}', '${img}', this)">
+
+    gallery.innerHTML = images.map((img, idx) => `
+        <img src="/uploads/${accountId}/${img}" loading="lazy" alt="${img}" data-index="${idx}" data-name="${img}" class="gallery-img" onclick="selectImage(event, '${accountId}', '${img}', this, ${idx})">
     `).join('');
+
+    // 選択状態をリセット
+    lastSelectedIndex = -1;
+    updateSelectionBadges();
 }
 
 // 画像アップロード設定
@@ -198,54 +267,81 @@ async function uploadImages(accountId, files) {
 }
 
 // 画像選択（複数対応、最大4枚）
-function selectImage(accountId, imageName, imgElement) {
-    const imageUrl = imgElement.src;
+function selectImage(e, accountId, imageName, imgElement, idx) {
+    const images = Array.from(document.querySelectorAll('.gallery-img'));
+    const index = typeof idx === 'number' ? idx : images.indexOf(imgElement);
+    if (index === -1) return;
 
-    // メガモード: 150枚まで選択可能（プレビュー簡易）
-    if (isMegaMode) {
-        const idx = megaSelectedImages.findIndex(img => img.src === imageUrl);
-        if (idx === -1) {
-            if (megaSelectedImages.length >= MEGA_MAX) {
-                alert(`最大${MEGA_MAX}枚まで選択できます`);
-                return;
-            }
-            megaSelectedImages.push({ src: imageUrl, name: imageName });
-            imgElement.classList.add('selected');
-        } else {
-            megaSelectedImages.splice(idx, 1);
-            imgElement.classList.remove('selected');
+    const maxCount = isMegaMode ? MEGA_MAX : 4;
+    const selection = isMegaMode ? megaSelectedImages : selectedImages;
+
+    const addSelection = (i) => {
+        const el = images[i];
+        const meta = { src: el.src, name: el.dataset.name };
+        if (selection.find(s => s.src === meta.src)) return;
+        if (selection.length >= maxCount) {
+            alert(`最大${maxCount}枚まで選択できます`);
+            return false;
         }
-        updateMegaSelectionStatus();
-        return;
-    }
+        selection.push(meta);
+        return true;
+    };
 
-    // 通常/小規模モード: 4枚まで
-    const index = selectedImages.findIndex(img => img.src === imageUrl);
-    
-    if (index === -1) {
-        if (selectedImages.length < 4) {
-            selectedImages.push({ src: imageUrl, name: imageName });
-            imgElement.classList.add('selected');
+    const removeSelection = (i) => {
+        const el = images[i];
+        const src = el.src;
+        const idxSel = selection.findIndex(s => s.src === src);
+        if (idxSel >= 0) selection.splice(idxSel, 1);
+    };
+
+    if (e.shiftKey && lastSelectedIndex !== -1) {
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        for (let i = start; i <= end; i++) {
+            if (selection.length >= maxCount) break;
+            addSelection(i);
+        }
+    } else if (e.ctrlKey || e.metaKey) {
+        const exists = selection.findIndex(s => s.src === imgElement.src);
+        if (exists >= 0) {
+            removeSelection(index);
         } else {
-            alert('最大4枚までです');
-            return;
+            addSelection(index);
         }
     } else {
-        selectedImages.splice(index, 1);
-        imgElement.classList.remove('selected');
+        // 単一選択に置き換え
+        selection.length = 0;
+        addSelection(index);
     }
-    
+
+    // 配列を元の変数に戻す（参照のまま更新される）
+    if (isMegaMode) {
+        megaSelectedImages = selection;
+        updateMegaSelectionStatus();
+    } else {
+        selectedImages = selection;
+    }
+
+    updateSelectionBadges(images, selection);
     updateSelectedImagesPreview();
+    if (activeTab === 'bulk') updateBulkPreview();
+    if (activeTab === 'single') updateSingleCardPreview();
+
+    lastSelectedIndex = selection.length > 0 ? index : -1;
 }
 
 // 選択画像のプレビューを更新
 function updateSelectedImagesPreview() {
     const preview = document.getElementById('selected-image-preview');
     if (!preview) return;
+    const current = isMegaMode ? megaSelectedImages : selectedImages;
+    const limit = isMegaMode ? MEGA_MAX : 4;
     
-    if (selectedImages.length === 0) {
-        preview.innerHTML = '<p style="color:#999; margin:0;">画像を選択してください（最大4枚）</p>';
-        document.getElementById('image-count').textContent = '0 / 4';
+    if (current.length === 0) {
+        preview.innerHTML = `<p style="color:#999; margin:0;">画像を選択してください（最大${limit}枚）</p>`;
+        const counter = document.getElementById('image-count');
+        if (counter) counter.textContent = `0 / ${limit}`;
+        updateSingleCardPreview();
         return;
     }
     
@@ -253,11 +349,11 @@ function updateSelectedImagesPreview() {
     let html = '<div class="image-preview-multi">';
     
     for (let i = 0; i < 4; i++) {
-        if (i < selectedImages.length) {
+        if (i < current.length) {
             html += `
                 <div class="image-item">
-                    <img src="${selectedImages[i].src}" alt="${selectedImages[i].name}">
-                    <button type="button" class="remove-btn" onclick="removeSelectedImage(${i})">×</button>
+                    <img src="${current[i].src}" alt="${current[i].name}">
+                    ${isMegaMode ? '' : `<button type="button" class="remove-btn" onclick="removeSelectedImage(${i})">×</button>`}
                 </div>
             `;
         } else {
@@ -269,7 +365,9 @@ function updateSelectedImagesPreview() {
     preview.innerHTML = html;
     
     // 画像数を表示
-    document.getElementById('image-count').textContent = `${selectedImages.length} / 4`;
+    const counter = document.getElementById('image-count');
+    if (counter) counter.textContent = `${current.length} / ${limit}`;
+    updateSingleCardPreview();
 }
 
 // 選択画像を削除（インデックス指定）
@@ -286,6 +384,8 @@ function removeSelectedImage(index) {
         });
         
         updateSelectedImagesPreview();
+        updateSelectionBadges();
+        updateSingleCardPreview();
     }
 }
 
@@ -294,12 +394,16 @@ function clearSelectedImage() {
     selectedImages = [];
     document.querySelectorAll('.gallery-img').forEach(i => i.classList.remove('selected'));
     updateSelectedImagesPreview();
+    updateSelectionBadges();
+    updateSingleCardPreview();
 }
 
 function clearMegaSelectedImages() {
     megaSelectedImages = [];
     document.querySelectorAll('.gallery-img').forEach(i => i.classList.remove('selected'));
     updateMegaSelectionStatus();
+    updateSelectionBadges();
+    updateSelectedImagesPreview();
 }
 
 function updateMegaSelectionStatus() {
@@ -309,17 +413,34 @@ function updateMegaSelectionStatus() {
     }
 }
 
-// タイムライン描画（次回投稿を真ん中に配置）
+// 選択順バッジを更新（Windows風シフト/CTRL対応）
+function updateSelectionBadges(imgNodes, selectionList) {
+    const images = imgNodes ? Array.from(imgNodes) : Array.from(document.querySelectorAll('.gallery-img'));
+    const selection = selectionList || (isMegaMode ? megaSelectedImages : selectedImages);
+    const orderMap = new Map(selection.map((s, idx) => [s.src, idx + 1]));
+
+    images.forEach(img => {
+        if (orderMap.has(img.src)) {
+            img.classList.add('selected');
+            img.dataset.order = orderMap.get(img.src);
+        } else {
+            img.classList.remove('selected');
+            delete img.dataset.order;
+        }
+    });
+}
+
+// タイムライン描画（予約/履歴を2カラム表示）
 function renderTimeline(tweets) {
-    const timeline = document.getElementById('combined-timeline');
-    if (!timeline) return;
+    const scheduledBox = document.getElementById('scheduled-list');
+    const postedBox = document.getElementById('posted-list');
+    if (!scheduledBox || !postedBox) return;
     
-    // 最新20件を上限に表示して負荷を軽減
     const posted = tweets.filter(t => t.is_posted).sort((a, b) => new Date(b.posted_at) - new Date(a.posted_at));
     const scheduled = tweets.filter(t => !t.is_posted).sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
     const MAX_ITEMS = 20;
-    const postedLimited = posted.slice(0, 5); // 投稿済みは最新5件まで
+    const postedLimited = posted.slice(0, 10);
     const remainingSlots = Math.max(MAX_ITEMS - postedLimited.length, 0);
     const scheduledLimited = scheduled.slice(0, remainingSlots);
     const truncated = posted.length > postedLimited.length || scheduled.length > scheduledLimited.length;
@@ -327,32 +448,29 @@ function renderTimeline(tweets) {
     const nextTweet = scheduledLimited.length > 0 ? scheduledLimited[0] : null;
     const otherScheduled = scheduledLimited.slice(1);
 
-    let html = '';
-
-    if (postedLimited.length > 0) {
-        html += '<h4 style="color:#666; font-size:0.9em; margin:15px 0 10px 0;">最近の投稿</h4>';
-        postedLimited.forEach(t => {
-            html += renderTweetItem(t, true);
-        });
-    }
-
+    let scheduledHtml = '';
     if (nextTweet) {
-        html += '<h4 style="color:#1da1f2; font-size:0.9em; margin:20px 0 10px 0;">📍 次回投稿</h4>';
-        html += renderTweetItem(nextTweet, false, true);
+        scheduledHtml += renderTweetItem(nextTweet, false, true);
     }
+    otherScheduled.forEach(t => {
+        scheduledHtml += renderTweetItem(t, false);
+    });
+    if (!scheduledHtml) scheduledHtml = '<p style="color:#999;">予約がありません</p>';
 
-    if (otherScheduled.length > 0) {
-        html += '<h4 style="color:#666; font-size:0.9em; margin:20px 0 10px 0;">予約済み</h4>';
-        otherScheduled.forEach(t => {
-            html += renderTweetItem(t, false);
-        });
-    }
+    let postedHtml = '';
+    postedLimited.forEach(t => {
+        postedHtml += renderTweetItem(t, true);
+    });
+    if (!postedHtml) postedHtml = '<p style="color:#999;">履歴がありません</p>';
 
     if (truncated) {
-        html += '<p style="color:#999; margin-top:10px; font-size:0.85em;">※ 最新20件のみ表示しています。残りは省略。</p>';
+        const note = '<p style="color:#999; margin-top:10px; font-size:0.85em;">※ 最新20件のみ表示しています。</p>';
+        scheduledHtml += note;
+        postedHtml += note;
     }
 
-    timeline.innerHTML = html || '<p style="color:#999;">まだ投稿がありません</p>';
+    scheduledBox.innerHTML = scheduledHtml;
+    postedBox.innerHTML = postedHtml;
 }
 
 // ツイートアイテムを描画（画像サムネイル付き）
@@ -452,6 +570,12 @@ if (tweetForm) {
 // ダッシュボード読み込み（index.htmlで実行）
 loadAccounts();
 
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('xbm-theme') || 'light';
+    applyTheme(saved);
+    setupThemeToggle();
+});
+
 // === 一括予約モード関連関数 ===
 
 // 一括予約モードの切り替え
@@ -532,7 +656,7 @@ function updateBulkPreview() {
     }
 
     const startDate = new Date(startTime);
-    let html = '<div style="max-height: 300px; overflow-y: auto;">';
+    let html = '<div class="card-preview-list">';
 
     selectedImages.forEach((img, index) => {
         const scheduleDate = new Date(startDate);
@@ -544,10 +668,9 @@ function updateBulkPreview() {
         } else if (textMode === 'number') {
             text = `${textContent ? textContent + ' ' : ''}(${index + 1}/${selectedImages.length})`;
         } else if (textMode === 'filename') {
-            text = img.name.replace(/\.[^/.]+$/, ''); // 拡張子を除去
+            text = img.name.replace(/\.[^/.]+$/, '');
         }
 
-        // 予約内容のサマリーを生成
         const timeStr = scheduleDate.toLocaleString('ja-JP', {
             year: 'numeric',
             month: '2-digit',
@@ -557,13 +680,12 @@ function updateBulkPreview() {
         });
 
         html += `
-            <div style="padding: 10px; border-bottom: 1px solid #eee; background: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <small style="color: #1da1f2; font-weight: bold; font-size: 0.8em;">投稿 ${index + 1}/${selectedImages.length}</small>
-                    <small style="color: #666; font-size: 0.75em;">${timeStr}</small>
+            <div class="card-preview-item">
+                <img class="card-preview-thumb" src="${img.src}" alt="${img.name}">
+                <div class="card-preview-meta">
+                    <h5>投稿 ${index + 1} / ${selectedImages.length}</h5>
+                    <p>${text || '(テキストなし)'}<br><small style="color:inherit;">${timeStr} ・ ${img.name}</small></p>
                 </div>
-                <p style="margin: 3px 0; font-size: 0.85em; word-break: break-word; color: #333;">${text || '(テキストなし)'}</p>
-                <small style="color: #999; font-size: 0.75em;">📷 ${img.name}</small>
             </div>
         `;
     });
@@ -571,6 +693,37 @@ function updateBulkPreview() {
     html += '</div>';
     document.getElementById('bulk_preview').innerHTML = html;
     document.getElementById('bulk_tweet_count').textContent = selectedImages.length;
+}
+
+// シングルモードのカードプレビュー
+function updateSingleCardPreview() {
+    const list = document.getElementById('card-preview-list');
+    if (!list) return;
+
+    const current = isMegaMode ? megaSelectedImages : selectedImages;
+    
+    if (current.length === 0) {
+        list.innerHTML = '<p style="color:#999;">画像を選択するとここにプレビューが表示されます</p>';
+        return;
+    }
+
+    const scheduledAt = document.getElementById('scheduled_at')?.value || '';
+    const text = document.getElementById('content')?.value || '';
+
+    let html = '';
+    current.forEach((img, index) => {
+        html += `
+            <div class="card-preview-item">
+                <img class="card-preview-thumb" src="${img.src}" alt="${img.name}">
+                <div class="card-preview-meta">
+                    <h5>画像 ${index + 1}</h5>
+                    <p>${text || '(テキストなし)'}<br><small style="color:inherit;">${scheduledAt || '日時未設定'} ・ ${img.name}</small></p>
+                </div>
+            </div>
+        `;
+    });
+
+    list.innerHTML = html;
 }
 
 // 一括予約フォーム送信
