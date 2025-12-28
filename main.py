@@ -570,4 +570,6 @@ def delete_hourly_schedule(
     return {"status": "success", "message": "スケジュール設定を削除しました"}
 
 
+# 静的ファイルの配信設定
+app.mount("/uploads", StaticFiles(directory="static/uploads"), name="uploads")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

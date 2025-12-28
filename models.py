@@ -1,8 +1,9 @@
 from datetime import datetime
 from sqlmodel import Field, SQLModel, create_engine, Session, select
 from typing import Optional
+import os
 
-sqlite_url = "sqlite:///database.db"
+sqlite_url = os.getenv("DATABASE_URL", "sqlite:///./database.db")
 engine = create_engine(sqlite_url, echo=True, connect_args={"check_same_thread": False})
 
 
