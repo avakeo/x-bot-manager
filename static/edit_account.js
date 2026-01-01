@@ -1,74 +1,76 @@
 // パスワード表示/非表示のトグル
 function togglePasswordVisibility(inputId, toggleButton) {
-    const input = document.getElementById(inputId);
-    const isPassword = input.type === 'password';
-    
-    input.type = isPassword ? 'text' : 'password';
-    toggleButton.textContent = isPassword ? '🙉' : '🙈';
+  const input = document.getElementById(inputId);
+  const isPassword = input.type === "password";
+
+  input.type = isPassword ? "text" : "password";
+  toggleButton.textContent = isPassword ? "🙉" : "🙈";
 }
 
 // URLからアカウントIDを取得
 const urlParams = new URLSearchParams(window.location.search);
-const accountId = urlParams.get('id');
+const accountId = urlParams.get("id");
 
 // ページ読み込み時にアカウント情報を取得
 async function loadAccountData() {
-    if (!accountId) {
-        alert('アカウントIDが指定されていません');
-        location.href = 'index.html';
-        return;
-    }
+  if (!accountId) {
+    alert("アカウントIDが指定されていません");
+    location.href = "index.html";
+    return;
+  }
 
-    const res = await fetch(`/accounts/${accountId}`);
-    if (!res.ok) {
-        alert('アカウント情報の取得に失敗しました');
-        location.href = 'index.html';
-        return;
-    }
+  const res = await fetch(`/accounts/${accountId}`);
+  if (!res.ok) {
+    alert("アカウント情報の取得に失敗しました");
+    location.href = "index.html";
+    return;
+  }
 
-    const account = await res.json();
-    
-    // アカウント名をフォームに設定
-    document.getElementById('name').value = account.name;
-    
-    // APIキーはマスク表示されているので、プレースホルダーのまま
+  const account = await res.json();
+
+  // アカウント名をフォームに設定
+  document.getElementById("name").value = account.name;
+
+  // APIキーはマスク表示されているので、プレースホルダーのまま
 }
 
 // アカウント更新処理
-const editForm = document.getElementById('editForm');
+const editForm = document.getElementById("editForm");
 if (editForm) {
-    editForm.onsubmit = async (e) => {
-        e.preventDefault();
-        
-        const data = {
-            name: document.getElementById('name').value.trim()
-        };
+  editForm.onsubmit = async (e) => {
+    e.preventDefault();
 
-        // APIキーフィールドが空でない場合のみ追加
-        const apiKey = document.getElementById('api_key').value.trim();
-        const apiSecret = document.getElementById('api_secret').value.trim();
-        const accessToken = document.getElementById('access_token').value.trim();
-        const accessTokenSecret = document.getElementById('access_token_secret').value.trim();
-
-        if (apiKey) data.api_key = apiKey;
-        if (apiSecret) data.api_secret = apiSecret;
-        if (accessToken) data.access_token = accessToken;
-        if (accessTokenSecret) data.access_token_secret = accessTokenSecret;
-
-        const res = await fetch(`/accounts/${accountId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (res.ok) {
-            alert('アカウント情報を更新しました！');
-            location.href = 'index.html';
-        } else {
-            const error = await res.json();
-            alert(`更新に失敗しました: ${error.detail || '不明なエラー'}`);
-        }
+    const data = {
+      name: document.getElementById("name").value.trim(),
     };
+
+    // APIキーフィールドが空でない場合のみ追加
+    const apiKey = document.getElementById("api_key").value.trim();
+    const apiSecret = document.getElementById("api_secret").value.trim();
+    const accessToken = document.getElementById("access_token").value.trim();
+    const accessTokenSecret = document
+      .getElementById("access_token_secret")
+      .value.trim();
+
+    if (apiKey) data.api_key = apiKey;
+    if (apiSecret) data.api_secret = apiSecret;
+    if (accessToken) data.access_token = accessToken;
+    if (accessTokenSecret) data.access_token_secret = accessTokenSecret;
+
+    const res = await fetch(`/accounts/${accountId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+      alert("アカウント情報を更新しました！");
+      location.href = "index.html";
+    } else {
+      const error = await res.json();
+      alert(`更新に失敗しました: ${error.detail || "不明なエラー"}`);
+    }
+  };
 }
 
 // ページ読み込み時に実行

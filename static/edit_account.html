@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <title>アカウント編集</title>
     <link rel="stylesheet" href="style.css?v=2">
 </head>
+
 <body>
     <div class="container" style="max-width: 400px;">
         <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -17,26 +19,34 @@
             </div>
             <div class="form-group">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="password" id="api_key" name="api_key" placeholder="API Key (変更しない場合は空白)" style="flex: 1;">
-                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('api_key', this)">🙈</button>
+                    <input type="password" id="api_key" name="api_key" placeholder="API Key (変更しない場合は空白)"
+                        style="flex: 1;">
+                    <button type="button" class="toggle-btn"
+                        onclick="togglePasswordVisibility('api_key', this)">🙈</button>
                 </div>
             </div>
             <div class="form-group">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="password" id="api_secret" name="api_secret" placeholder="API Secret (変更しない場合は空白)" style="flex: 1;">
-                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('api_secret', this)">🙈</button>
+                    <input type="password" id="api_secret" name="api_secret" placeholder="API Secret (変更しない場合は空白)"
+                        style="flex: 1;">
+                    <button type="button" class="toggle-btn"
+                        onclick="togglePasswordVisibility('api_secret', this)">🙈</button>
                 </div>
             </div>
             <div class="form-group">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="password" id="access_token" name="access_token" placeholder="Access Token (変更しない場合は空白)" style="flex: 1;">
-                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('access_token', this)">🙈</button>
+                    <input type="password" id="access_token" name="access_token" placeholder="Access Token (変更しない場合は空白)"
+                        style="flex: 1;">
+                    <button type="button" class="toggle-btn"
+                        onclick="togglePasswordVisibility('access_token', this)">🙈</button>
                 </div>
             </div>
             <div class="form-group">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="password" id="access_token_secret" name="access_token_secret" placeholder="Access Secret (変更しない場合は空白)" style="flex: 1;">
-                    <button type="button" class="toggle-btn" onclick="togglePasswordVisibility('access_token_secret', this)">🙈</button>
+                    <input type="password" id="access_token_secret" name="access_token_secret"
+                        placeholder="Access Secret (変更しない場合は空白)" style="flex: 1;">
+                    <button type="button" class="toggle-btn"
+                        onclick="togglePasswordVisibility('access_token_secret', this)">🙈</button>
                 </div>
             </div>
             <p style="color: #666; font-size: 0.9em; margin: 10px 0;">
@@ -49,4 +59,5 @@
     <script src="app.js?v=2"></script>
     <script src="edit_account.js"></script>
 </body>
+
 </html>
