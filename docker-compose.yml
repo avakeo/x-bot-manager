@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: x-bot-manager-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/database.db
+      - TZ=Asia/Tokyo
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/static/uploads
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: x-bot-manager-tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - app
+
+networks:
+  app-network:
+    driver: bridge
