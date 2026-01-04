@@ -52,6 +52,7 @@ class HourlySchedule(SQLModel, table=True):
     hours: str = Field(
         default="[]"
     )  # 投稿する時間のJSON配列（例: ["09:00", "12:00", "15:00"]）
+    start_time: Optional[str] = Field(default=None)  # 開始時刻（例: "09:00"）
     is_active: bool = Field(default=True)  # スケジュールが有効かどうか
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)

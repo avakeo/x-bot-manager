@@ -469,6 +469,7 @@ def get_hourly_schedules(account_id: int, session: Session = Depends(get_session
                 "id": schedule.id,
                 "name": schedule.name,
                 "hours": json.loads(schedule.hours),
+                "start_time": schedule.start_time,
                 "is_active": schedule.is_active,
                 "created_at": schedule.created_at,
                 "updated_at": schedule.updated_at,
@@ -490,6 +491,7 @@ def create_hourly_schedule(
 
     name = data.get("name", "").strip()
     hours = data.get("hours", [])  # ["09:00", "12:00", "15:00"] の形式
+    start_time = data.get("start_time", None)
     is_active = data.get("is_active", True)
 
     if not name:
@@ -499,7 +501,11 @@ def create_hourly_schedule(
         raise HTTPException(status_code=400, detail="時間を指定してください")
 
     schedule = HourlySchedule(
-        account_id=account_id, name=name, hours=json.dumps(hours), is_active=is_active
+        account_id=account_id,
+        name=name,
+        hours=json.dumps(hours),
+        start_time=start_time,
+        is_active=is_active,
     )
 
     session.add(schedule)
@@ -511,6 +517,7 @@ def create_hourly_schedule(
         "id": schedule.id,
         "name": schedule.name,
         "hours": json.loads(schedule.hours),
+        "start_time": schedule.start_time,
         "is_active": schedule.is_active,
     }
 
@@ -538,6 +545,9 @@ def update_hourly_schedule(
             )
         schedule.hours = json.dumps(data["hours"])
 
+    if "start_time" in data:
+        schedule.start_time = data["start_time"]
+
     if "is_active" in data:
         schedule.is_active = data["is_active"]
 
@@ -550,6 +560,7 @@ def update_hourly_schedule(
         "id": schedule.id,
         "name": schedule.name,
         "hours": json.loads(schedule.hours),
+        "start_time": schedule.start_time,
         "is_active": schedule.is_active,
     }
 

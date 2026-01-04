@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // 間隔に基づいて時間を生成
 function generateHours() {
   const interval = parseInt(document.getElementById("intervalSelect").value);
+  const startTimeStr = document.getElementById("scheduleStartTime").value;
 
   if (!interval) {
     document.getElementById("hoursGrid").innerHTML =
@@ -35,10 +36,33 @@ function generateHours() {
   grid.innerHTML = "";
   selectedHours = [];
 
-  // 指定された間隔で時間を生成
-  for (let hour = 0; hour < 24; hour += interval) {
-    const hourStr = String(hour).padStart(2, "0") + ":00";
+  let times = [];
 
+  if (startTimeStr) {
+    // 開始時刻が指定されている場合、それを最初の時刻として間隔ごとに計算
+    const [startHour, startMinute] = startTimeStr.split(":").map(Number);
+    
+    // 開始時刻から24時間分の時刻を生成
+    for (let i = 0; i < 24; i++) {
+      const totalMinutes = (startHour * 60 + startMinute) + (i * interval * 60);
+      const hour = Math.floor((totalMinutes / 60) % 24);
+      const minute = totalMinutes % 60;
+      
+      const hourStr = String(hour).padStart(2, "0");
+      const minuteStr = String(minute).padStart(2, "0");
+      const timeStr = `${hourStr}:${minuteStr}`;
+      times.push(timeStr);
+    }
+  } else {
+    // 開始時刻が指定されていない場合、通常通り時間を生成
+    for (let hour = 0; hour < 24; hour += interval) {
+      const hourStr = String(hour).padStart(2, "0") + ":00";
+      times.push(hourStr);
+    }
+  }
+
+  // 生成した時間をチェックボックスで表示
+  times.forEach((timeStr) => {
     const label = document.createElement("label");
     label.style.display = "flex";
     label.style.alignItems = "center";
@@ -49,7 +73,7 @@ function generateHours() {
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.value = hourStr;
+    checkbox.value = timeStr;
     checkbox.style.cursor = "pointer";
     checkbox.style.width = "18px";
     checkbox.style.height = "18px";
@@ -64,13 +88,13 @@ function generateHours() {
     });
 
     const text = document.createElement("span");
-    text.textContent = hourStr;
+    text.textContent = timeStr;
     text.style.fontSize = "1em";
 
     label.appendChild(checkbox);
     label.appendChild(text);
     grid.appendChild(label);
-  }
+  });
 }
 
 // すべて選択
@@ -97,6 +121,7 @@ function deselectAllHours() {
 // スケジュール設定を作成
 async function createSchedule() {
   const name = document.getElementById("scheduleName").value.trim();
+  const startTime = document.getElementById("scheduleStartTime").value || null;
   const interval = document.getElementById("intervalSelect").value;
 
   if (!name) {
@@ -121,6 +146,7 @@ async function createSchedule() {
       body: JSON.stringify({
         name: name,
         hours: selectedHours,
+        start_time: startTime,
         is_active: true,
       }),
     });
@@ -129,6 +155,7 @@ async function createSchedule() {
       alert("スケジュール設定を作成しました");
       // フォームをリセット
       document.getElementById("scheduleName").value = "";
+      document.getElementById("scheduleStartTime").value = "";
       document.getElementById("intervalSelect").value = "";
       selectedHours = [];
       document.getElementById("hoursGrid").innerHTML =
@@ -190,6 +217,7 @@ async function loadSchedules() {
                       .join("")}
                 </div>
                 <div class="schedule-info">
+                    ${schedule.start_time ? `<small>開始時刻: ${schedule.start_time}</small><br>` : ""}
                     <small>作成: ${new Date(schedule.created_at).toLocaleString(
                       "ja-JP"
                     )}</small>

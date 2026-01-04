@@ -160,6 +160,28 @@ header {
     border-color: var(--accent);
 }
 
+.btn-secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: var(--tab-bg);
+    border-color: var(--accent);
+    color: var(--tab-text);
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
+}
+
 /* ダッシュボード（カード） */
 .grid {
     display: grid;

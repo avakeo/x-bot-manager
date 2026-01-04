@@ -10,24 +10,31 @@
 
 <body>
     <div class="container">
-        <h1>スケジュール設定</h1>
-
-        <div class="back-link">
-            <a href="account_detail.html" id="backToAccount">← アカウント詳細に戻る</a>
-        </div>
+        <header>
+            <h1 id="account-name">スケジュール設定</h1>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button id="themeToggle" class="btn-ghost" type="button">🌙 ダーク</button>
+                <a id="backToAccount" href="#" class="btn-add" style="background:#666;">← 戻る</a>
+            </div>
+        </header>
 
         <!-- 新規作成フォーム -->
-        <div class="form-section">
-            <h2>新しいスケジュール設定を作成</h2>
+        <div class="form-section" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 30px;">
+            <h2 style="margin: 0 0 20px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 10px;">新しいスケジュール設定を作成</h2>
             <div class="form-group">
                 <label>設定名</label>
                 <input type="text" id="scheduleName" placeholder="例: 平日スケジュール">
             </div>
 
             <div class="form-group">
+                <label>開始時刻</label>
+                <input type="time" id="scheduleStartTime" placeholder="08:00" onchange="generateHours()">
+                <small style="color: var(--muted); display: block; margin-top: 5px;">📅 スケジュールの開始時刻を設定します（オプション）</small>
+            </div>
+
+            <div class="form-group">
                 <label>投稿間隔を選択</label>
-                <select id="intervalSelect" onchange="generateHours()"
-                    style="padding:8px; font-size:1em; border:1px solid #ccc; border-radius:4px;">
+                <select id="intervalSelect" onchange="generateHours()">
                     <option value="">選択してください</option>
                     <option value="1">1時間ごと</option>
                     <option value="2">2時間ごと</option>
@@ -51,18 +58,19 @@
                 </div>
             </div>
 
-            <button onclick="createSchedule()" class="btn-primary">作成</button>
+            <button onclick="createSchedule()" class="btn-save">作成</button>
         </div>
 
         <!-- 既存のスケジュール一覧 -->
-        <div class="schedules-section">
-            <h2>保存済みスケジュール</h2>
+        <div class="schedules-section" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow);">
+            <h2 style="margin: 0 0 20px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 10px;">保存済みスケジュール</h2>
             <div id="schedulesList">
                 <!-- スケジュール一覧が動的に表示されます -->
             </div>
         </div>
     </div>
 
+    <script src="app.js?v=12"></script>
     <script src="schedule_settings.js"></script>
 </body>
 
