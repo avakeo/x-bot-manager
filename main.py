@@ -140,8 +140,12 @@ def test_tweet(account_id: int, session: Session = Depends(get_session)):
     try:
         # X APIを叩く
         send_hello_world(account)
-        return {"status": "success"}
+        return {"status": "success", "message": "テスト投稿を送信しました"}
     except Exception as e:
+        import traceback
+
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"エラー詳細: {error_detail}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
