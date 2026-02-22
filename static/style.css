@@ -521,6 +521,34 @@ select:focus {
     font-size: 0.8em;
 }
 
+.delete-tweet-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(220, 38, 38, 0.85);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.timeline-item:hover .delete-tweet-btn {
+    opacity: 1;
+}
+
+.delete-tweet-btn:hover {
+    background: rgba(220, 38, 38, 1);
+}
+
 /* 複数画像選択プレビュー */
 .image-preview-multi {
     display: grid;

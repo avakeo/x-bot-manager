@@ -332,6 +332,21 @@ async def upload_image(account_id: int, file: UploadFile = File(...)):
     return {"filename": unique_name}
 
 
+# 予約ツイートを削除（未投稿のみ）
+@app.delete("/accounts/{account_id}/tweets/{tweet_id}")
+def delete_tweet(
+    account_id: int, tweet_id: int, session: Session = Depends(get_session)
+):
+    tweet = session.get(Tweet, tweet_id)
+    if not tweet or tweet.account_id != account_id:
+        raise HTTPException(status_code=404, detail="Tweet not found")
+    if tweet.is_posted:
+        raise HTTPException(status_code=400, detail="投稿済みのツイートは削除できません")
+    session.delete(tweet)
+    session.commit()
+    return {"status": "success"}
+
+
 # 画像を削除
 @app.delete("/accounts/{account_id}/images/{image_name}")
 def delete_image(account_id: int, image_name: str):

@@ -715,12 +715,16 @@ function renderTweetItem(tweet, isPosted, isNext = false) {
 
   const date = new Date(tweet.scheduled_at || tweet.posted_at);
   const borderStyle = isNext ? "border-left: 4px solid #1da1f2;" : "";
+  const deleteBtn = !isPosted
+    ? `<button class="delete-tweet-btn" onclick="deleteTweet(${tweet.id})" title="削除">×</button>`
+    : "";
 
   return `
         <div class="timeline-item ${
           isPosted ? "posted" : "scheduled"
-        }" style="${borderStyle}">
+        }" style="${borderStyle}; position:relative;">
             <div class="status-badge">${isPosted ? "✓" : "⏰"}</div>
+            ${deleteBtn}
             <p>${tweet.content || "(画像のみ)"}</p>
             ${imagesHtml}
             <small>${date.toLocaleString("ja-JP", {
@@ -731,6 +735,26 @@ function renderTweetItem(tweet, isPosted, isNext = false) {
             })}</small>
         </div>
     `;
+}
+
+// 予約ツイートを削除
+async function deleteTweet(tweetId) {
+  if (!confirm("この予約ツイートを削除しますか？")) return;
+  const urlParams = new URLSearchParams(window.location.search);
+  const accountId = urlParams.get("id");
+  try {
+    const res = await fetch(`/accounts/${accountId}/tweets/${tweetId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      location.reload();
+    } else {
+      const err = await res.json();
+      alert(`削除に失敗しました: ${err.detail || "不明なエラー"}`);
+    }
+  } catch (e) {
+    alert("通信エラーが発生しました");
+  }
 }
 
 // 4. 予約フォームの送信処理
