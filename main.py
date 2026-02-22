@@ -9,12 +9,13 @@ from models import (
     get_session,
     create_db_and_tables,
 )  # create_db_and_tablesを追加
-from services.encryption import encrypt_data
+from services.encryption import encrypt_data, decrypt_data
 from services.x_service import send_hello_world  # 後ほど作成する関数
 from datetime import datetime
 from uuid import uuid4
 from typing import List, Optional
 import json
+import tweepy
 
 app = FastAPI()
 
@@ -71,9 +72,36 @@ def list_accounts(session: Session = Depends(get_session)):
     return result
 
 
+def _verify_twitter_credentials(
+    api_key: str, api_secret: str, access_token: str, access_token_secret: str
+):
+    """Twitter API の疎通確認。失敗したら HTTPException を raise する。"""
+    try:
+        client = tweepy.Client(
+            consumer_key=api_key,
+            consumer_secret=api_secret,
+            access_token=access_token,
+            access_token_secret=access_token_secret,
+        )
+        client.get_me()
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"API キーの疎通確認に失敗しました: {str(e)}",
+        )
+
+
 # 2. アカウント登録（保存）
 @app.post("/accounts")
 def save_account(account: Account, session: Session = Depends(get_session)):
+    # 保存前に疎通確認
+    _verify_twitter_credentials(
+        account.api_key,
+        account.api_secret,
+        account.access_token,
+        account.access_token_secret,
+    )
+
     # 暗号化して保存
     account.api_key = encrypt_data(account.api_key)
     account.api_secret = encrypt_data(account.api_secret)
@@ -116,14 +144,27 @@ def update_account(
         account.name = data["name"]
 
     # APIキーが送られてきた場合のみ更新（空でない場合）
-    if data.get("api_key") and data["api_key"] != "****":
-        account.api_key = encrypt_data(data["api_key"])
-    if data.get("api_secret") and data["api_secret"] != "****":
-        account.api_secret = encrypt_data(data["api_secret"])
-    if data.get("access_token") and data["access_token"] != "****":
-        account.access_token = encrypt_data(data["access_token"])
-    if data.get("access_token_secret") and data["access_token_secret"] != "****":
-        account.access_token_secret = encrypt_data(data["access_token_secret"])
+    new_api_key = data.get("api_key") if data.get("api_key") and data["api_key"] != "****" else None
+    new_api_secret = data.get("api_secret") if data.get("api_secret") and data["api_secret"] != "****" else None
+    new_access_token = data.get("access_token") if data.get("access_token") and data["access_token"] != "****" else None
+    new_access_token_secret = data.get("access_token_secret") if data.get("access_token_secret") and data["access_token_secret"] != "****" else None
+
+    # いずれかのキーが変更された場合、疎通確認を行う
+    if any([new_api_key, new_api_secret, new_access_token, new_access_token_secret]):
+        verify_key = new_api_key or decrypt_data(account.api_key)
+        verify_secret = new_api_secret or decrypt_data(account.api_secret)
+        verify_token = new_access_token or decrypt_data(account.access_token)
+        verify_token_secret = new_access_token_secret or decrypt_data(account.access_token_secret)
+        _verify_twitter_credentials(verify_key, verify_secret, verify_token, verify_token_secret)
+
+    if new_api_key:
+        account.api_key = encrypt_data(new_api_key)
+    if new_api_secret:
+        account.api_secret = encrypt_data(new_api_secret)
+    if new_access_token:
+        account.access_token = encrypt_data(new_access_token)
+    if new_access_token_secret:
+        account.access_token_secret = encrypt_data(new_access_token_secret)
 
     session.add(account)
     session.commit()
