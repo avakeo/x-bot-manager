@@ -347,8 +347,30 @@ def list_images(account_id: int):
 
 
 # 画像をアップロード
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_SIZE_BYTES = 5 * 1024 * 1024   # 5MB（通常画像）
+MAX_GIF_SIZE_BYTES = 15 * 1024 * 1024  # 15MB（GIF）
+
+
 @app.post("/accounts/{account_id}/upload")
 async def upload_image(account_id: int, file: UploadFile = File(...)):
+    # MIME タイプチェック
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"サポートされていないファイル形式です。JPEG / PNG / GIF / WebP のみ許可されています。",
+        )
+
+    # ファイルサイズチェック
+    size_limit = MAX_GIF_SIZE_BYTES if file.content_type == "image/gif" else MAX_SIZE_BYTES
+    contents = await file.read()
+    if len(contents) > size_limit:
+        limit_mb = size_limit // (1024 * 1024)
+        raise HTTPException(
+            status_code=400,
+            detail=f"ファイルサイズが上限（{limit_mb}MB）を超えています。",
+        )
+
     path = f"{UPLOAD_DIR}/{account_id}"
     os.makedirs(path, exist_ok=True)  # フォルダがなければ作成
 
@@ -360,7 +382,7 @@ async def upload_image(account_id: int, file: UploadFile = File(...)):
 
     file_path = os.path.join(path, unique_name)
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(contents)
 
     return {"filename": unique_name}
 
