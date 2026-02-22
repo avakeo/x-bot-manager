@@ -34,6 +34,8 @@ class Tweet(SQLModel, table=True):
     is_posted: bool = Field(default=False)  # 投稿済みかどうか
     scheduled_at: Optional[datetime] = None  # 予約日時
     posted_at: Optional[datetime] = None  # 実際の投稿日時
+    retry_count: int = Field(default=0)  # リトライ回数
+    is_failed: bool = Field(default=False)  # 3回失敗で True（無限リトライ防止）
 
 
 # --- CSVテキストデータ（アカウントごとに保存） ---
