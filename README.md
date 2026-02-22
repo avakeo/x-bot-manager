@@ -24,16 +24,25 @@ X (Twitter) アカウントの投稿を管理・自動化するツールです�
 
 ### X API キーの取得
 
-[X Developer Portal](https://developer.twitter.com/) でアプリを作成し、以下の4つを取得してください。
+**OAuth 1.0a の4つのキー**が必要です。OAuth 2.0 (Client ID / Client Secret) は使いません。
 
-| 項目 | 説明 |
-|------|------|
-| API Key | Consumer Key |
-| API Secret | Consumer Secret |
-| Access Token | アクセストークン |
-| Access Token Secret | アクセストークンシークレット |
+[X Developer Portal](https://developer.twitter.com/) でアプリを選択し、**Keys and tokens** タブから取得してください。
 
-> アプリの権限設定で **Read and Write** を選択してください。
+| アプリの入力欄 | Developer Portal での場所 |
+|---|---|
+| API Key | Consumer Keys → **API Key** |
+| API Secret | Consumer Keys → **API Key Secret** |
+| Access Token | Authentication Tokens → **Access Token** |
+| Access Token Secret | Authentication Tokens → **Access Token Secret** |
+
+#### 取得手順
+
+1. [Developer Portal](https://developer.twitter.com/) でアプリを作成
+2. アプリの **User authentication settings** を開く
+3. **OAuth 1.0a** を有効化し、権限を **Read and Write** に設定して保存
+4. **Keys and tokens** タブで Consumer Keys と Access Token を生成
+
+> ⚠️ OAuth 1.0a を有効化する**前**に生成した Access Token は Read only になっています。権限変更後に**再生成**してください。
 
 ---
 
