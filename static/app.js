@@ -1,3 +1,19 @@
+// ===== トースト通知 =====
+function showToast(message, type = "info") {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  // アニメーション終了後に削除
+  setTimeout(() => toast.remove(), 3500);
+}
+
 // 1. ダッシュボードの読み込み
 async function loadAccounts() {
   const grid = document.getElementById("account-grid");
@@ -23,11 +39,33 @@ async function loadAccounts() {
             <h3>${acc.name}</h3>
             <p><span class="label">最終ツイート</span> ${acc.last_tweet}</p>
             <p><span class="label">次回予定</span> ${acc.next_scheduled}</p>
-            <button onclick="event.stopPropagation(); testPost(${acc.id})" style="margin-top:10px; cursor:pointer;">Hello Worldテスト</button>
+            <button onclick="event.stopPropagation(); verifyAccount(${acc.id}, this)" style="margin-top:10px; cursor:pointer;">APIキー確認</button>
+            <button onclick="event.stopPropagation(); testPost(${acc.id})" style="margin-top:6px; cursor:pointer;">Hello Worldテスト</button>
         </div>
     `
     )
     .join("");
+}
+
+// APIキー確認（get_me() で認証確認のみ、投稿しない）
+async function verifyAccount(accountId, btn) {
+  const original = btn.textContent;
+  btn.textContent = "確認中...";
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/accounts/${accountId}/verify`);
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`OK: @${data.username} (${data.name})`, "success");
+    } else {
+      showToast(`キーエラー: ${data.detail}`, "error");
+    }
+  } catch (e) {
+    showToast("通信エラー", "error");
+  } finally {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
 }
 
 // 2. テスト投稿
@@ -35,8 +73,8 @@ async function testPost(accountId) {
   const res = await fetch(`/accounts/${accountId}/test-tweet`, {
     method: "POST",
   });
-  if (res.ok) alert("ツイート成功！");
-  else alert("エラーが発生しました");
+  if (res.ok) showToast("ツイート成功！", "success");
+  else showToast("エラーが発生しました", "error");
 }
 
 // アカウント編集（編集ページへリダイレクト）
@@ -390,11 +428,11 @@ async function deleteImage(event, accountId, imageName) {
       updateBulkPreview();
       updateImageCountDisplay();
     } else {
-      alert("削除に失敗しました");
+      showToast("削除に失敗しました", "error");
     }
   } catch (err) {
     console.error("削除エラー:", err);
-    alert("削除エラーが発生しました");
+    showToast("削除エラーが発生しました", "error");
   }
 }
 
@@ -438,7 +476,7 @@ async function uploadImages(accountId, files) {
 
   for (const file of files) {
     if (!file.type.startsWith("image/")) {
-      alert(`${file.name} は画像ファイルではありません`);
+      showToast(`${file.name} は画像ファイルではありません`, "error");
       continue;
     }
 
@@ -455,12 +493,12 @@ async function uploadImages(accountId, files) {
         uploadedCount++;
       }
     } catch (err) {
-      alert(`${file.name} のアップロードに失敗しました`);
+      showToast(`${file.name} のアップロードに失敗しました`, "error");
     }
   }
 
   if (uploadedCount > 0) {
-    alert(`${uploadedCount}枚の画像をアップロードしました`);
+    showToast(`${uploadedCount}枚の画像をアップロードしました`, "success");
     loadImages(accountId); // 再読み込み
   }
 }
@@ -479,7 +517,7 @@ function selectImage(e, accountId, imageName, imgElement, idx) {
     const meta = { src: el.src, name: el.dataset.name };
     if (selection.find((s) => s.src === meta.src)) return;
     if (selection.length >= maxCount) {
-      alert(`最大${maxCount}枚まで選択できます`);
+      showToast(`最大${maxCount}枚まで選択できます`, "info");
       return false;
     }
     selection.push(meta);
@@ -641,55 +679,60 @@ function updateSelectionBadges(imgNodes, selectionList) {
   });
 }
 
-// タイムライン描画（予約/履歴を2カラム表示）
+// タイムライン描画（予約/履歴を2カラム表示、ページネーション対応）
+let _allPosted = [];
+let _allScheduled = [];
+const PAGE_SIZE = 20;
+let _postedPage = 1;
+let _scheduledPage = 1;
+
 function renderTimeline(tweets) {
   const scheduledBox = document.getElementById("scheduled-list");
   const postedBox = document.getElementById("posted-list");
   if (!scheduledBox || !postedBox) return;
 
-  const posted = tweets
+  _allPosted = tweets
     .filter((t) => t.is_posted)
     .sort((a, b) => new Date(b.posted_at) - new Date(a.posted_at));
-  const scheduled = tweets
+  _allScheduled = tweets
     .filter((t) => !t.is_posted)
     .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-  const MAX_ITEMS = 20;
-  const postedLimited = posted.slice(0, 10);
-  const remainingSlots = Math.max(MAX_ITEMS - postedLimited.length, 0);
-  const scheduledLimited = scheduled.slice(0, remainingSlots);
-  const truncated =
-    posted.length > postedLimited.length ||
-    scheduled.length > scheduledLimited.length;
+  _postedPage = 1;
+  _scheduledPage = 1;
 
-  const nextTweet = scheduledLimited.length > 0 ? scheduledLimited[0] : null;
-  const otherScheduled = scheduledLimited.slice(1);
+  _renderScheduledPage(scheduledBox);
+  _renderPostedPage(postedBox);
+}
 
-  let scheduledHtml = "";
-  if (nextTweet) {
-    scheduledHtml += renderTweetItem(nextTweet, false, true);
-  }
-  otherScheduled.forEach((t) => {
-    scheduledHtml += renderTweetItem(t, false);
+function _renderScheduledPage(box) {
+  const visible = _allScheduled.slice(0, _scheduledPage * PAGE_SIZE);
+  const hasMore = _allScheduled.length > visible.length;
+
+  let html = "";
+  visible.forEach((t, idx) => {
+    html += renderTweetItem(t, false, idx === 0);
   });
-  if (!scheduledHtml)
-    scheduledHtml = '<p style="color:#999;">予約がありません</p>';
-
-  let postedHtml = "";
-  postedLimited.forEach((t) => {
-    postedHtml += renderTweetItem(t, true);
-  });
-  if (!postedHtml) postedHtml = '<p style="color:#999;">履歴がありません</p>';
-
-  if (truncated) {
-    const note =
-      '<p style="color:#999; margin-top:10px; font-size:0.85em;">※ 最新20件のみ表示しています。</p>';
-    scheduledHtml += note;
-    postedHtml += note;
+  if (!html) html = '<p style="color:#999;">予約がありません</p>';
+  if (hasMore) {
+    html += `<button class="btn-ghost" style="width:100%; margin-top:8px;" onclick="_scheduledPage++; _renderScheduledPage(document.getElementById('scheduled-list'))">もっと見る</button>`;
   }
+  box.innerHTML = html;
+}
 
-  scheduledBox.innerHTML = scheduledHtml;
-  postedBox.innerHTML = postedHtml;
+function _renderPostedPage(box) {
+  const visible = _allPosted.slice(0, _postedPage * PAGE_SIZE);
+  const hasMore = _allPosted.length > visible.length;
+
+  let html = "";
+  visible.forEach((t) => {
+    html += renderTweetItem(t, true);
+  });
+  if (!html) html = '<p style="color:#999;">履歴がありません</p>';
+  if (hasMore) {
+    html += `<button class="btn-ghost" style="width:100%; margin-top:8px;" onclick="_postedPage++; _renderPostedPage(document.getElementById('posted-list'))">もっと見る</button>`;
+  }
+  box.innerHTML = html;
 }
 
 // ツイートアイテムを描画（画像サムネイル付き）
@@ -715,12 +758,16 @@ function renderTweetItem(tweet, isPosted, isNext = false) {
 
   const date = new Date(tweet.scheduled_at || tweet.posted_at);
   const borderStyle = isNext ? "border-left: 4px solid #1da1f2;" : "";
+  const deleteBtn = !isPosted
+    ? `<button class="delete-tweet-btn" onclick="deleteTweet(${tweet.id})" title="削除">×</button>`
+    : "";
 
   return `
         <div class="timeline-item ${
           isPosted ? "posted" : "scheduled"
-        }" style="${borderStyle}">
+        }" style="${borderStyle}; position:relative;">
             <div class="status-badge">${isPosted ? "✓" : "⏰"}</div>
+            ${deleteBtn}
             <p>${tweet.content || "(画像のみ)"}</p>
             ${imagesHtml}
             <small>${date.toLocaleString("ja-JP", {
@@ -731,6 +778,26 @@ function renderTweetItem(tweet, isPosted, isNext = false) {
             })}</small>
         </div>
     `;
+}
+
+// 予約ツイートを削除
+async function deleteTweet(tweetId) {
+  if (!confirm("この予約ツイートを削除しますか？")) return;
+  const urlParams = new URLSearchParams(window.location.search);
+  const accountId = urlParams.get("id");
+  try {
+    const res = await fetch(`/accounts/${accountId}/tweets/${tweetId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      location.reload();
+    } else {
+      const err = await res.json();
+      showToast(`削除に失敗しました: ${err.detail || "不明なエラー"}`, "error");
+    }
+  } catch (e) {
+    showToast("通信エラーが発生しました", "error");
+  }
 }
 
 // 4. 予約フォームの送信処理
@@ -746,7 +813,7 @@ if (tweetForm) {
 
     // テキストと画像の両方が空でないか確認
     if (!content && selectedImages.length === 0) {
-      alert("テキストまたは画像を選択してください");
+      showToast("テキストまたは画像を選択してください", "error");
       return;
     }
 
@@ -754,7 +821,7 @@ if (tweetForm) {
     const scheduledDate = new Date(scheduledAtValue);
     const now = new Date();
     if (scheduledDate <= now) {
-      alert("予約時刻は現在時刻より後に設定してください");
+      showToast("予約時刻は現在時刻より後に設定してください", "error");
       return;
     }
 
@@ -778,7 +845,7 @@ if (tweetForm) {
       });
 
       if (res.ok) {
-        alert("✅ 予約しました！");
+        showToast("予約しました！", "success");
         selectedImages = []; // リセット
         clearSelectedImage();
         document.getElementById("content").value = "";
@@ -786,10 +853,10 @@ if (tweetForm) {
         location.reload(); // 再読み込みして一覧を更新
       } else {
         const error = await res.json();
-        alert(`❌ エラーが発生しました:\n${error.detail || "不明なエラー"}`);
+        showToast(`エラーが発生しました: ${error.detail || "不明なエラー"}`, "error");
       }
     } catch (err) {
-      alert(`❌ 通信エラーが発生しました:\n${err.message}`);
+      showToast(`通信エラーが発生しました: ${err.message}`, "error");
     }
   };
 }
@@ -884,9 +951,9 @@ async function processCSVFile(
         .map((line) => line.replace(/\\n/g, "\n"));
 
       // 100件制限
-      if (csvTexts.length > 100) {
-        alert("最大100件までです。先頭100件のみ使用します。");
-        csvTexts = csvTexts.slice(0, 100);
+      if (csvTexts.length > 150) {
+        showToast("最大150件までです。先頭150件のみ使用します。", "info");
+        csvTexts = csvTexts.slice(0, 150);
       }
 
       // プレビュー表示
@@ -963,7 +1030,7 @@ function setupCSVDragDropZone() {
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      alert("CSVファイルをドロップしてください");
+      showToast("CSVファイルをドロップしてください", "error");
       return;
     }
     await processCSVFile(file);
@@ -1000,7 +1067,7 @@ function setupMegaCSVDragDropZone() {
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      alert("CSVファイルをドロップしてください");
+      showToast("CSVファイルをドロップしてください", "error");
       return;
     }
     await processCSVFile(file, "mega_csv_preview", "mega_csv_content");
@@ -1238,7 +1305,7 @@ if (bulkTweetForm) {
     const id = urlParams.get("id");
 
     if (selectedImages.length === 0) {
-      alert("画像を選択してください");
+      showToast("画像を選択してください", "error");
       return;
     }
 
@@ -1254,7 +1321,7 @@ if (bulkTweetForm) {
     const textContent = document.getElementById("bulk_text").value;
 
     if (!startTime || !intervalMinutes || !textMode) {
-      alert("すべての項目を入力してください");
+      showToast("すべての項目を入力してください", "error");
       return;
     }
 
@@ -1313,9 +1380,7 @@ if (bulkTweetForm) {
 
       if (res.ok) {
         const result = await res.json();
-        alert(
-          `✅ ${tweets.length}件の投稿を予約しました！\n\nアカウント詳細ページで確認できます。`
-        );
+        showToast(`${tweets.length}件の投稿を予約しました！`, "success");
         selectedImages = [];
         clearSelectedImage();
         // フォームをリセット
@@ -1327,10 +1392,10 @@ if (bulkTweetForm) {
         location.reload();
       } else {
         const error = await res.json();
-        alert(`❌ エラーが発生しました:\n${error.detail || "不明なエラー"}`);
+        showToast(`エラーが発生しました: ${error.detail || "不明なエラー"}`, "error");
       }
     } catch (err) {
-      alert(`❌ 通信エラーが発生しました:\n${err.message}`);
+      showToast(`通信エラーが発生しました: ${err.message}`, "error");
     }
   };
 }
@@ -1343,7 +1408,7 @@ if (megaScheduleButton) {
     const id = urlParams.get("id");
 
     if (megaSelectedImages.length === 0) {
-      alert("画像を選択してください（最大150枚）");
+      showToast("画像を選択してください（最大150枚）", "error");
       return;
     }
 
@@ -1362,12 +1427,15 @@ if (megaScheduleButton) {
     const text = document.getElementById("mega_text")?.value || "";
 
     if (!startTime || !intervalMinutes) {
-      alert("開始日時と間隔を入力してください");
+      showToast("開始日時と間隔を入力してください", "error");
       return;
     }
 
     const startDate = new Date(startTime);
     const total = megaSelectedImages.length;
+    const useCSV =
+      document.querySelector('input[name="mega_text_source"]:checked')
+        ?.value === "csv";
 
     const progressText = document.getElementById("mega-progress-text");
     const progressBar = document.getElementById("mega-progress-bar");
@@ -1442,13 +1510,14 @@ if (megaScheduleButton) {
           : `⚠️ 一部失敗しました（成功 ${success}, 失敗 ${failed}）`;
 
     if (success > 0) {
-      alert(
-        `✅ ${success}件を予約しました${failed ? `（失敗 ${failed}件）` : ""}`
+      showToast(
+        `${success}件を予約しました${failed ? `（失敗 ${failed}件）` : ""}`,
+        "success"
       );
       clearMegaSelectedImages();
       location.reload();
     } else {
-      alert("❌ 予約に失敗しました。入力内容を確認してください。");
+      showToast("予約に失敗しました。入力内容を確認してください。", "error");
     }
   };
 }
@@ -1539,8 +1608,8 @@ async function loadScheduleSelects(accountId) {
         select.remove(1);
       }
 
-      // スケジュールをオプションに追加
-      schedules.forEach((schedule) => {
+      // is_active な スケジュールのみオプションに追加
+      schedules.filter((s) => s.is_active).forEach((schedule) => {
         const option = document.createElement("option");
         option.value = JSON.stringify(schedule.hours); // 時間配列をJSON文字列で保存
         option.textContent = `${schedule.name} (${schedule.hours.join(", ")})`;

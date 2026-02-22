@@ -34,13 +34,15 @@ class Tweet(SQLModel, table=True):
     is_posted: bool = Field(default=False)  # 投稿済みかどうか
     scheduled_at: Optional[datetime] = None  # 予約日時
     posted_at: Optional[datetime] = None  # 実際の投稿日時
+    retry_count: int = Field(default=0)  # リトライ回数
+    is_failed: bool = Field(default=False)  # 3回失敗で True（無限リトライ防止）
 
 
 # --- CSVテキストデータ（アカウントごとに保存） ---
 class CSVText(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     account_id: int = Field(unique=True)  # アカウントごとに1レコード
-    texts: str = Field(default="[]")  # JSON配列で最大100件のテキストを保存
+    texts: str = Field(default="[]")  # JSON配列で最大150件のテキストを保存
     updated_at: datetime = Field(default_factory=datetime.now)
 
 

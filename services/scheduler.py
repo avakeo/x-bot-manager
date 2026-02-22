@@ -4,7 +4,6 @@ from sqlmodel import Session, select
 from models import engine, Account, Tweet
 from services.x_service import send_tweet_with_media
 from datetime import datetime
-from zoneinfo import ZoneInfo
 import logging
 import json
 
@@ -16,11 +15,13 @@ logger = logging.getLogger(__name__)
 def check_and_post():
     """DBをチェックして投稿するメイン処理"""
     with Session(engine) as session:
-        # 日本時間（JST）で現在時刻を取得
-        now = datetime.now(ZoneInfo("Asia/Tokyo"))
-        # 1. 投稿待ち(is_posted=False) かつ 予定時刻(scheduled_at)が現在より前のものを取得
+        # naive datetime で現在時刻を取得（TZ=Asia/Tokyo 環境変数で JST になる）
+        now = datetime.now()
+        # 1. 投稿待ち(is_posted=False) かつ 予定時刻(scheduled_at)が現在より前で、失敗していないものを取得
         statement = select(Tweet).where(
-            Tweet.is_posted == False, Tweet.scheduled_at <= now
+            Tweet.is_posted == False,
+            Tweet.is_failed == False,
+            Tweet.scheduled_at <= now,
         )
         pending_tweets = session.exec(statement).all()
 
@@ -48,7 +49,17 @@ def check_and_post():
                 session.add(tweet)
                 logger.info(f"投稿成功！")
             except Exception as e:
-                logger.error(f"投稿失敗 (ID: {tweet.id}): {e}")
+                tweet.retry_count += 1
+                if tweet.retry_count >= 3:
+                    tweet.is_failed = True
+                    logger.error(
+                        f"投稿失敗 (ID: {tweet.id}): {e} → 3回失敗したため is_failed=True"
+                    )
+                else:
+                    logger.error(
+                        f"投稿失敗 (ID: {tweet.id}): {e} （リトライ {tweet.retry_count}/3）"
+                    )
+                session.add(tweet)
 
         session.commit()
 

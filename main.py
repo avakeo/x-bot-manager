@@ -9,12 +9,13 @@ from models import (
     get_session,
     create_db_and_tables,
 )  # create_db_and_tablesを追加
-from services.encryption import encrypt_data
+from services.encryption import encrypt_data, decrypt_data
 from services.x_service import send_hello_world  # 後ほど作成する関数
 from datetime import datetime
 from uuid import uuid4
 from typing import List, Optional
 import json
+import tweepy
 
 app = FastAPI()
 
@@ -71,9 +72,36 @@ def list_accounts(session: Session = Depends(get_session)):
     return result
 
 
+def _verify_twitter_credentials(
+    api_key: str, api_secret: str, access_token: str, access_token_secret: str
+):
+    """Twitter API の疎通確認。失敗したら HTTPException を raise する。"""
+    try:
+        client = tweepy.Client(
+            consumer_key=api_key,
+            consumer_secret=api_secret,
+            access_token=access_token,
+            access_token_secret=access_token_secret,
+        )
+        client.get_me()
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"API キーの疎通確認に失敗しました: {str(e)}",
+        )
+
+
 # 2. アカウント登録（保存）
 @app.post("/accounts")
 def save_account(account: Account, session: Session = Depends(get_session)):
+    # 保存前に疎通確認
+    _verify_twitter_credentials(
+        account.api_key,
+        account.api_secret,
+        account.access_token,
+        account.access_token_secret,
+    )
+
     # 暗号化して保存
     account.api_key = encrypt_data(account.api_key)
     account.api_secret = encrypt_data(account.api_secret)
@@ -116,18 +144,89 @@ def update_account(
         account.name = data["name"]
 
     # APIキーが送られてきた場合のみ更新（空でない場合）
-    if data.get("api_key") and data["api_key"] != "****":
-        account.api_key = encrypt_data(data["api_key"])
-    if data.get("api_secret") and data["api_secret"] != "****":
-        account.api_secret = encrypt_data(data["api_secret"])
-    if data.get("access_token") and data["access_token"] != "****":
-        account.access_token = encrypt_data(data["access_token"])
-    if data.get("access_token_secret") and data["access_token_secret"] != "****":
-        account.access_token_secret = encrypt_data(data["access_token_secret"])
+    new_api_key = data.get("api_key") if data.get("api_key") and data["api_key"] != "****" else None
+    new_api_secret = data.get("api_secret") if data.get("api_secret") and data["api_secret"] != "****" else None
+    new_access_token = data.get("access_token") if data.get("access_token") and data["access_token"] != "****" else None
+    new_access_token_secret = data.get("access_token_secret") if data.get("access_token_secret") and data["access_token_secret"] != "****" else None
+
+    # いずれかのキーが変更された場合、疎通確認を行う
+    if any([new_api_key, new_api_secret, new_access_token, new_access_token_secret]):
+        verify_key = new_api_key or decrypt_data(account.api_key)
+        verify_secret = new_api_secret or decrypt_data(account.api_secret)
+        verify_token = new_access_token or decrypt_data(account.access_token)
+        verify_token_secret = new_access_token_secret or decrypt_data(account.access_token_secret)
+        _verify_twitter_credentials(verify_key, verify_secret, verify_token, verify_token_secret)
+
+    if new_api_key:
+        account.api_key = encrypt_data(new_api_key)
+    if new_api_secret:
+        account.api_secret = encrypt_data(new_api_secret)
+    if new_access_token:
+        account.access_token = encrypt_data(new_access_token)
+    if new_access_token_secret:
+        account.access_token_secret = encrypt_data(new_access_token_secret)
 
     session.add(account)
     session.commit()
     return {"status": "success"}
+
+
+# アカウント削除
+@app.delete("/accounts/{account_id}")
+def delete_account(account_id: int, session: Session = Depends(get_session)):
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # 紐づくツイートを一括削除
+    tweets = session.exec(
+        select(Tweet).where(Tweet.account_id == account_id)
+    ).all()
+    for tweet in tweets:
+        session.delete(tweet)
+
+    # 紐づく CSV テキストを削除
+    csv_texts = session.exec(
+        select(CSVText).where(CSVText.account_id == account_id)
+    ).all()
+    for ct in csv_texts:
+        session.delete(ct)
+
+    # 紐づくスケジュールを削除
+    schedules = session.exec(
+        select(HourlySchedule).where(HourlySchedule.account_id == account_id)
+    ).all()
+    for s in schedules:
+        session.delete(s)
+
+    session.delete(account)
+    session.commit()
+    return {"status": "success"}
+
+
+# API キー確認（get_me() で認証確認のみ、投稿しない）
+@app.get("/accounts/{account_id}/verify")
+def verify_account(account_id: int, session: Session = Depends(get_session)):
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    try:
+        client = tweepy.Client(
+            consumer_key=decrypt_data(account.api_key),
+            consumer_secret=decrypt_data(account.api_secret),
+            access_token=decrypt_data(account.access_token),
+            access_token_secret=decrypt_data(account.access_token_secret),
+        )
+        me = client.get_me()
+        return {
+            "status": "ok",
+            "twitter_id": me.data.id,
+            "username": me.data.username,
+            "name": me.data.name,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # 3. テスト投稿実行
@@ -231,9 +330,9 @@ def schedule_bulk_tweets(
     if not tweets_data:
         raise HTTPException(status_code=400, detail="ツイートが指定されていません")
 
-    if len(tweets_data) > 100:  # 一度に100個以上は登録不可
+    if len(tweets_data) > 150:  # 一度に150個以上は登録不可
         raise HTTPException(
-            status_code=400, detail="一度に登録できるツイートは100個までです"
+            status_code=400, detail="一度に登録できるツイートは150個までです"
         )
 
     created_count = 0
@@ -314,8 +413,30 @@ def list_images(account_id: int):
 
 
 # 画像をアップロード
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_SIZE_BYTES = 5 * 1024 * 1024   # 5MB（通常画像）
+MAX_GIF_SIZE_BYTES = 15 * 1024 * 1024  # 15MB（GIF）
+
+
 @app.post("/accounts/{account_id}/upload")
 async def upload_image(account_id: int, file: UploadFile = File(...)):
+    # MIME タイプチェック
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"サポートされていないファイル形式です。JPEG / PNG / GIF / WebP のみ許可されています。",
+        )
+
+    # ファイルサイズチェック
+    size_limit = MAX_GIF_SIZE_BYTES if file.content_type == "image/gif" else MAX_SIZE_BYTES
+    contents = await file.read()
+    if len(contents) > size_limit:
+        limit_mb = size_limit // (1024 * 1024)
+        raise HTTPException(
+            status_code=400,
+            detail=f"ファイルサイズが上限（{limit_mb}MB）を超えています。",
+        )
+
     path = f"{UPLOAD_DIR}/{account_id}"
     os.makedirs(path, exist_ok=True)  # フォルダがなければ作成
 
@@ -327,9 +448,24 @@ async def upload_image(account_id: int, file: UploadFile = File(...)):
 
     file_path = os.path.join(path, unique_name)
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(contents)
 
     return {"filename": unique_name}
+
+
+# 予約ツイートを削除（未投稿のみ）
+@app.delete("/accounts/{account_id}/tweets/{tweet_id}")
+def delete_tweet(
+    account_id: int, tweet_id: int, session: Session = Depends(get_session)
+):
+    tweet = session.get(Tweet, tweet_id)
+    if not tweet or tweet.account_id != account_id:
+        raise HTTPException(status_code=404, detail="Tweet not found")
+    if tweet.is_posted:
+        raise HTTPException(status_code=400, detail="投稿済みのツイートは削除できません")
+    session.delete(tweet)
+    session.commit()
+    return {"status": "success"}
 
 
 # 画像を削除
@@ -353,9 +489,9 @@ def save_csv_texts(
     """
     texts = data.get("texts", [])
 
-    # 100件制限
-    if len(texts) > 100:
-        raise HTTPException(status_code=400, detail="最大100件までです")
+    # 150件制限
+    if len(texts) > 150:
+        raise HTTPException(status_code=400, detail="最大150件までです")
 
     # 既存レコードを検索
     statement = select(CSVText).where(CSVText.account_id == account_id)
@@ -585,6 +721,7 @@ def delete_hourly_schedule(
     return {"status": "success", "message": "スケジュール設定を削除しました"}
 
 
-# 静的ファイルの配信設定
+# 静的ファイルの配信設定（ディレクトリがなければ作成）
+os.makedirs("static/uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="static/uploads"), name="uploads")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
