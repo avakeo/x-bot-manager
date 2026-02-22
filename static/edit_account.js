@@ -14,14 +14,14 @@ const accountId = urlParams.get("id");
 // ページ読み込み時にアカウント情報を取得
 async function loadAccountData() {
   if (!accountId) {
-    alert("アカウントIDが指定されていません");
+    showToast("アカウントIDが指定されていません", "error");
     location.href = "index.html";
     return;
   }
 
   const res = await fetch(`/accounts/${accountId}`);
   if (!res.ok) {
-    alert("アカウント情報の取得に失敗しました");
+    showToast("アカウント情報の取得に失敗しました", "error");
     location.href = "index.html";
     return;
   }
@@ -64,11 +64,11 @@ if (editForm) {
     });
 
     if (res.ok) {
-      alert("アカウント情報を更新しました！");
+      showToast("アカウント情報を更新しました！", "success");
       location.href = "index.html";
     } else {
       const error = await res.json();
-      alert(`更新に失敗しました: ${error.detail || "不明なエラー"}`);
+      showToast(`更新に失敗しました: ${error.detail || "不明なエラー"}`, "error");
     }
   };
 }
@@ -86,11 +86,11 @@ if (deleteAccountBtn) {
 
     const res = await fetch(`/accounts/${accountId}`, { method: "DELETE" });
     if (res.ok) {
-      alert("アカウントを削除しました");
+      showToast("アカウントを削除しました", "success");
       location.href = "index.html";
     } else {
       const err = await res.json();
-      alert(`削除に失敗しました: ${err.detail || "不明なエラー"}`);
+      showToast(`削除に失敗しました: ${err.detail || "不明なエラー"}`, "error");
     }
   };
 }

@@ -1,3 +1,19 @@
+// ===== トースト通知 =====
+function showToast(message, type = "info") {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  // アニメーション終了後に削除
+  setTimeout(() => toast.remove(), 3500);
+}
+
 // 1. ダッシュボードの読み込み
 async function loadAccounts() {
   const grid = document.getElementById("account-grid");
@@ -35,8 +51,8 @@ async function testPost(accountId) {
   const res = await fetch(`/accounts/${accountId}/test-tweet`, {
     method: "POST",
   });
-  if (res.ok) alert("ツイート成功！");
-  else alert("エラーが発生しました");
+  if (res.ok) showToast("ツイート成功！", "success");
+  else showToast("エラーが発生しました", "error");
 }
 
 // アカウント編集（編集ページへリダイレクト）
@@ -390,11 +406,11 @@ async function deleteImage(event, accountId, imageName) {
       updateBulkPreview();
       updateImageCountDisplay();
     } else {
-      alert("削除に失敗しました");
+      showToast("削除に失敗しました", "error");
     }
   } catch (err) {
     console.error("削除エラー:", err);
-    alert("削除エラーが発生しました");
+    showToast("削除エラーが発生しました", "error");
   }
 }
 
@@ -438,7 +454,7 @@ async function uploadImages(accountId, files) {
 
   for (const file of files) {
     if (!file.type.startsWith("image/")) {
-      alert(`${file.name} は画像ファイルではありません`);
+      showToast(`${file.name} は画像ファイルではありません`, "error");
       continue;
     }
 
@@ -455,12 +471,12 @@ async function uploadImages(accountId, files) {
         uploadedCount++;
       }
     } catch (err) {
-      alert(`${file.name} のアップロードに失敗しました`);
+      showToast(`${file.name} のアップロードに失敗しました`, "error");
     }
   }
 
   if (uploadedCount > 0) {
-    alert(`${uploadedCount}枚の画像をアップロードしました`);
+    showToast(`${uploadedCount}枚の画像をアップロードしました`, "success");
     loadImages(accountId); // 再読み込み
   }
 }
@@ -479,7 +495,7 @@ function selectImage(e, accountId, imageName, imgElement, idx) {
     const meta = { src: el.src, name: el.dataset.name };
     if (selection.find((s) => s.src === meta.src)) return;
     if (selection.length >= maxCount) {
-      alert(`最大${maxCount}枚まで選択できます`);
+      showToast(`最大${maxCount}枚まで選択できます`, "info");
       return false;
     }
     selection.push(meta);
@@ -750,10 +766,10 @@ async function deleteTweet(tweetId) {
       location.reload();
     } else {
       const err = await res.json();
-      alert(`削除に失敗しました: ${err.detail || "不明なエラー"}`);
+      showToast(`削除に失敗しました: ${err.detail || "不明なエラー"}`, "error");
     }
   } catch (e) {
-    alert("通信エラーが発生しました");
+    showToast("通信エラーが発生しました", "error");
   }
 }
 
@@ -770,7 +786,7 @@ if (tweetForm) {
 
     // テキストと画像の両方が空でないか確認
     if (!content && selectedImages.length === 0) {
-      alert("テキストまたは画像を選択してください");
+      showToast("テキストまたは画像を選択してください", "error");
       return;
     }
 
@@ -778,7 +794,7 @@ if (tweetForm) {
     const scheduledDate = new Date(scheduledAtValue);
     const now = new Date();
     if (scheduledDate <= now) {
-      alert("予約時刻は現在時刻より後に設定してください");
+      showToast("予約時刻は現在時刻より後に設定してください", "error");
       return;
     }
 
@@ -802,7 +818,7 @@ if (tweetForm) {
       });
 
       if (res.ok) {
-        alert("✅ 予約しました！");
+        showToast("予約しました！", "success");
         selectedImages = []; // リセット
         clearSelectedImage();
         document.getElementById("content").value = "";
@@ -810,10 +826,10 @@ if (tweetForm) {
         location.reload(); // 再読み込みして一覧を更新
       } else {
         const error = await res.json();
-        alert(`❌ エラーが発生しました:\n${error.detail || "不明なエラー"}`);
+        showToast(`エラーが発生しました: ${error.detail || "不明なエラー"}`, "error");
       }
     } catch (err) {
-      alert(`❌ 通信エラーが発生しました:\n${err.message}`);
+      showToast(`通信エラーが発生しました: ${err.message}`, "error");
     }
   };
 }
@@ -908,9 +924,9 @@ async function processCSVFile(
         .map((line) => line.replace(/\\n/g, "\n"));
 
       // 100件制限
-      if (csvTexts.length > 100) {
-        alert("最大100件までです。先頭100件のみ使用します。");
-        csvTexts = csvTexts.slice(0, 100);
+      if (csvTexts.length > 150) {
+        showToast("最大150件までです。先頭150件のみ使用します。", "info");
+        csvTexts = csvTexts.slice(0, 150);
       }
 
       // プレビュー表示
@@ -987,7 +1003,7 @@ function setupCSVDragDropZone() {
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      alert("CSVファイルをドロップしてください");
+      showToast("CSVファイルをドロップしてください", "error");
       return;
     }
     await processCSVFile(file);
@@ -1024,7 +1040,7 @@ function setupMegaCSVDragDropZone() {
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      alert("CSVファイルをドロップしてください");
+      showToast("CSVファイルをドロップしてください", "error");
       return;
     }
     await processCSVFile(file, "mega_csv_preview", "mega_csv_content");
@@ -1262,7 +1278,7 @@ if (bulkTweetForm) {
     const id = urlParams.get("id");
 
     if (selectedImages.length === 0) {
-      alert("画像を選択してください");
+      showToast("画像を選択してください", "error");
       return;
     }
 
@@ -1278,7 +1294,7 @@ if (bulkTweetForm) {
     const textContent = document.getElementById("bulk_text").value;
 
     if (!startTime || !intervalMinutes || !textMode) {
-      alert("すべての項目を入力してください");
+      showToast("すべての項目を入力してください", "error");
       return;
     }
 
@@ -1337,9 +1353,7 @@ if (bulkTweetForm) {
 
       if (res.ok) {
         const result = await res.json();
-        alert(
-          `✅ ${tweets.length}件の投稿を予約しました！\n\nアカウント詳細ページで確認できます。`
-        );
+        showToast(`${tweets.length}件の投稿を予約しました！`, "success");
         selectedImages = [];
         clearSelectedImage();
         // フォームをリセット
@@ -1351,10 +1365,10 @@ if (bulkTweetForm) {
         location.reload();
       } else {
         const error = await res.json();
-        alert(`❌ エラーが発生しました:\n${error.detail || "不明なエラー"}`);
+        showToast(`エラーが発生しました: ${error.detail || "不明なエラー"}`, "error");
       }
     } catch (err) {
-      alert(`❌ 通信エラーが発生しました:\n${err.message}`);
+      showToast(`通信エラーが発生しました: ${err.message}`, "error");
     }
   };
 }
@@ -1367,7 +1381,7 @@ if (megaScheduleButton) {
     const id = urlParams.get("id");
 
     if (megaSelectedImages.length === 0) {
-      alert("画像を選択してください（最大150枚）");
+      showToast("画像を選択してください（最大150枚）", "error");
       return;
     }
 
@@ -1386,7 +1400,7 @@ if (megaScheduleButton) {
     const text = document.getElementById("mega_text")?.value || "";
 
     if (!startTime || !intervalMinutes) {
-      alert("開始日時と間隔を入力してください");
+      showToast("開始日時と間隔を入力してください", "error");
       return;
     }
 
@@ -1469,13 +1483,14 @@ if (megaScheduleButton) {
           : `⚠️ 一部失敗しました（成功 ${success}, 失敗 ${failed}）`;
 
     if (success > 0) {
-      alert(
-        `✅ ${success}件を予約しました${failed ? `（失敗 ${failed}件）` : ""}`
+      showToast(
+        `${success}件を予約しました${failed ? `（失敗 ${failed}件）` : ""}`,
+        "success"
       );
       clearMegaSelectedImages();
       location.reload();
     } else {
-      alert("❌ 予約に失敗しました。入力内容を確認してください。");
+      showToast("予約に失敗しました。入力内容を確認してください。", "error");
     }
   };
 }
