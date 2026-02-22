@@ -4,7 +4,6 @@ from sqlmodel import Session, select
 from models import engine, Account, Tweet
 from services.x_service import send_tweet_with_media
 from datetime import datetime
-from zoneinfo import ZoneInfo
 import logging
 import json
 
@@ -16,8 +15,8 @@ logger = logging.getLogger(__name__)
 def check_and_post():
     """DBをチェックして投稿するメイン処理"""
     with Session(engine) as session:
-        # 日本時間（JST）で現在時刻を取得
-        now = datetime.now(ZoneInfo("Asia/Tokyo"))
+        # naive datetime で現在時刻を取得（TZ=Asia/Tokyo 環境変数で JST になる）
+        now = datetime.now()
         # 1. 投稿待ち(is_posted=False) かつ 予定時刻(scheduled_at)が現在より前のものを取得
         statement = select(Tweet).where(
             Tweet.is_posted == False, Tweet.scheduled_at <= now
