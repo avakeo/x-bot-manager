@@ -305,9 +305,9 @@ def schedule_bulk_tweets(
     if not tweets_data:
         raise HTTPException(status_code=400, detail="ツイートが指定されていません")
 
-    if len(tweets_data) > 100:  # 一度に100個以上は登録不可
+    if len(tweets_data) > 150:  # 一度に150個以上は登録不可
         raise HTTPException(
-            status_code=400, detail="一度に登録できるツイートは100個までです"
+            status_code=400, detail="一度に登録できるツイートは150個までです"
         )
 
     created_count = 0
@@ -464,9 +464,9 @@ def save_csv_texts(
     """
     texts = data.get("texts", [])
 
-    # 100件制限
-    if len(texts) > 100:
-        raise HTTPException(status_code=400, detail="最大100件までです")
+    # 150件制限
+    if len(texts) > 150:
+        raise HTTPException(status_code=400, detail="最大150件までです")
 
     # 既存レコードを検索
     statement = select(CSVText).where(CSVText.account_id == account_id)

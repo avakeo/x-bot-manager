@@ -42,7 +42,7 @@ class Tweet(SQLModel, table=True):
 class CSVText(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     account_id: int = Field(unique=True)  # アカウントごとに1レコード
-    texts: str = Field(default="[]")  # JSON配列で最大100件のテキストを保存
+    texts: str = Field(default="[]")  # JSON配列で最大150件のテキストを保存
     updated_at: datetime = Field(default_factory=datetime.now)
 
 
