@@ -1368,6 +1368,9 @@ if (megaScheduleButton) {
 
     const startDate = new Date(startTime);
     const total = megaSelectedImages.length;
+    const useCSV =
+      document.querySelector('input[name="mega_text_source"]:checked')
+        ?.value === "csv";
 
     const progressText = document.getElementById("mega-progress-text");
     const progressBar = document.getElementById("mega-progress-bar");
