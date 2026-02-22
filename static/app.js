@@ -1566,8 +1566,8 @@ async function loadScheduleSelects(accountId) {
         select.remove(1);
       }
 
-      // スケジュールをオプションに追加
-      schedules.forEach((schedule) => {
+      // is_active な スケジュールのみオプションに追加
+      schedules.filter((s) => s.is_active).forEach((schedule) => {
         const option = document.createElement("option");
         option.value = JSON.stringify(schedule.hours); // 時間配列をJSON文字列で保存
         option.textContent = `${schedule.name} (${schedule.hours.join(", ")})`;
