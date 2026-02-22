@@ -39,11 +39,33 @@ async function loadAccounts() {
             <h3>${acc.name}</h3>
             <p><span class="label">最終ツイート</span> ${acc.last_tweet}</p>
             <p><span class="label">次回予定</span> ${acc.next_scheduled}</p>
-            <button onclick="event.stopPropagation(); testPost(${acc.id})" style="margin-top:10px; cursor:pointer;">Hello Worldテスト</button>
+            <button onclick="event.stopPropagation(); verifyAccount(${acc.id}, this)" style="margin-top:10px; cursor:pointer;">APIキー確認</button>
+            <button onclick="event.stopPropagation(); testPost(${acc.id})" style="margin-top:6px; cursor:pointer;">Hello Worldテスト</button>
         </div>
     `
     )
     .join("");
+}
+
+// APIキー確認（get_me() で認証確認のみ、投稿しない）
+async function verifyAccount(accountId, btn) {
+  const original = btn.textContent;
+  btn.textContent = "確認中...";
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/accounts/${accountId}/verify`);
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`OK: @${data.username} (${data.name})`, "success");
+    } else {
+      showToast(`キーエラー: ${data.detail}`, "error");
+    }
+  } catch (e) {
+    showToast("通信エラー", "error");
+  } finally {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
 }
 
 // 2. テスト投稿

@@ -204,6 +204,31 @@ def delete_account(account_id: int, session: Session = Depends(get_session)):
     return {"status": "success"}
 
 
+# API キー確認（get_me() で認証確認のみ、投稿しない）
+@app.get("/accounts/{account_id}/verify")
+def verify_account(account_id: int, session: Session = Depends(get_session)):
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    try:
+        client = tweepy.Client(
+            consumer_key=decrypt_data(account.api_key),
+            consumer_secret=decrypt_data(account.api_secret),
+            access_token=decrypt_data(account.access_token),
+            access_token_secret=decrypt_data(account.access_token_secret),
+        )
+        me = client.get_me()
+        return {
+            "status": "ok",
+            "twitter_id": me.data.id,
+            "username": me.data.username,
+            "name": me.data.name,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # 3. テスト投稿実行
 @app.post("/accounts/{account_id}/test-tweet")
 def test_tweet(account_id: int, session: Session = Depends(get_session)):
@@ -696,6 +721,7 @@ def delete_hourly_schedule(
     return {"status": "success", "message": "スケジュール設定を削除しました"}
 
 
-# 静的ファイルの配信設定
+# 静的ファイルの配信設定（ディレクトリがなければ作成）
+os.makedirs("static/uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="static/uploads"), name="uploads")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
