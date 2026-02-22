@@ -73,5 +73,27 @@ if (editForm) {
   };
 }
 
+// アカウント削除
+const deleteAccountBtn = document.getElementById("deleteAccountBtn");
+if (deleteAccountBtn) {
+  deleteAccountBtn.onclick = async () => {
+    if (
+      !confirm(
+        "このアカウントを削除しますか？\n紐づくツイート・スケジュール・CSVテキストもすべて削除されます。"
+      )
+    )
+      return;
+
+    const res = await fetch(`/accounts/${accountId}`, { method: "DELETE" });
+    if (res.ok) {
+      alert("アカウントを削除しました");
+      location.href = "index.html";
+    } else {
+      const err = await res.json();
+      alert(`削除に失敗しました: ${err.detail || "不明なエラー"}`);
+    }
+  };
+}
+
 // ページ読み込み時に実行
 loadAccountData();

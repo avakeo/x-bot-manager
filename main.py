@@ -130,6 +130,39 @@ def update_account(
     return {"status": "success"}
 
 
+# アカウント削除
+@app.delete("/accounts/{account_id}")
+def delete_account(account_id: int, session: Session = Depends(get_session)):
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # 紐づくツイートを一括削除
+    tweets = session.exec(
+        select(Tweet).where(Tweet.account_id == account_id)
+    ).all()
+    for tweet in tweets:
+        session.delete(tweet)
+
+    # 紐づく CSV テキストを削除
+    csv_texts = session.exec(
+        select(CSVText).where(CSVText.account_id == account_id)
+    ).all()
+    for ct in csv_texts:
+        session.delete(ct)
+
+    # 紐づくスケジュールを削除
+    schedules = session.exec(
+        select(HourlySchedule).where(HourlySchedule.account_id == account_id)
+    ).all()
+    for s in schedules:
+        session.delete(s)
+
+    session.delete(account)
+    session.commit()
+    return {"status": "success"}
+
+
 # 3. テスト投稿実行
 @app.post("/accounts/{account_id}/test-tweet")
 def test_tweet(account_id: int, session: Session = Depends(get_session)):
