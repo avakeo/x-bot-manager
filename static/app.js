@@ -657,55 +657,60 @@ function updateSelectionBadges(imgNodes, selectionList) {
   });
 }
 
-// タイムライン描画（予約/履歴を2カラム表示）
+// タイムライン描画（予約/履歴を2カラム表示、ページネーション対応）
+let _allPosted = [];
+let _allScheduled = [];
+const PAGE_SIZE = 20;
+let _postedPage = 1;
+let _scheduledPage = 1;
+
 function renderTimeline(tweets) {
   const scheduledBox = document.getElementById("scheduled-list");
   const postedBox = document.getElementById("posted-list");
   if (!scheduledBox || !postedBox) return;
 
-  const posted = tweets
+  _allPosted = tweets
     .filter((t) => t.is_posted)
     .sort((a, b) => new Date(b.posted_at) - new Date(a.posted_at));
-  const scheduled = tweets
+  _allScheduled = tweets
     .filter((t) => !t.is_posted)
     .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-  const MAX_ITEMS = 20;
-  const postedLimited = posted.slice(0, 10);
-  const remainingSlots = Math.max(MAX_ITEMS - postedLimited.length, 0);
-  const scheduledLimited = scheduled.slice(0, remainingSlots);
-  const truncated =
-    posted.length > postedLimited.length ||
-    scheduled.length > scheduledLimited.length;
+  _postedPage = 1;
+  _scheduledPage = 1;
 
-  const nextTweet = scheduledLimited.length > 0 ? scheduledLimited[0] : null;
-  const otherScheduled = scheduledLimited.slice(1);
+  _renderScheduledPage(scheduledBox);
+  _renderPostedPage(postedBox);
+}
 
-  let scheduledHtml = "";
-  if (nextTweet) {
-    scheduledHtml += renderTweetItem(nextTweet, false, true);
-  }
-  otherScheduled.forEach((t) => {
-    scheduledHtml += renderTweetItem(t, false);
+function _renderScheduledPage(box) {
+  const visible = _allScheduled.slice(0, _scheduledPage * PAGE_SIZE);
+  const hasMore = _allScheduled.length > visible.length;
+
+  let html = "";
+  visible.forEach((t, idx) => {
+    html += renderTweetItem(t, false, idx === 0);
   });
-  if (!scheduledHtml)
-    scheduledHtml = '<p style="color:#999;">予約がありません</p>';
-
-  let postedHtml = "";
-  postedLimited.forEach((t) => {
-    postedHtml += renderTweetItem(t, true);
-  });
-  if (!postedHtml) postedHtml = '<p style="color:#999;">履歴がありません</p>';
-
-  if (truncated) {
-    const note =
-      '<p style="color:#999; margin-top:10px; font-size:0.85em;">※ 最新20件のみ表示しています。</p>';
-    scheduledHtml += note;
-    postedHtml += note;
+  if (!html) html = '<p style="color:#999;">予約がありません</p>';
+  if (hasMore) {
+    html += `<button class="btn-ghost" style="width:100%; margin-top:8px;" onclick="_scheduledPage++; _renderScheduledPage(document.getElementById('scheduled-list'))">もっと見る</button>`;
   }
+  box.innerHTML = html;
+}
 
-  scheduledBox.innerHTML = scheduledHtml;
-  postedBox.innerHTML = postedHtml;
+function _renderPostedPage(box) {
+  const visible = _allPosted.slice(0, _postedPage * PAGE_SIZE);
+  const hasMore = _allPosted.length > visible.length;
+
+  let html = "";
+  visible.forEach((t) => {
+    html += renderTweetItem(t, true);
+  });
+  if (!html) html = '<p style="color:#999;">履歴がありません</p>';
+  if (hasMore) {
+    html += `<button class="btn-ghost" style="width:100%; margin-top:8px;" onclick="_postedPage++; _renderPostedPage(document.getElementById('posted-list'))">もっと見る</button>`;
+  }
+  box.innerHTML = html;
 }
 
 // ツイートアイテムを描画（画像サムネイル付き）
